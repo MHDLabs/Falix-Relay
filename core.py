@@ -1,13 +1,9 @@
 from __future__ import annotations
 
 import asyncio
-import atexit
 import inspect
-import json
-import os
 import time
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any, Awaitable, Callable, Dict, Optional, Tuple
 
 __all__ = [
@@ -25,22 +21,10 @@ __all__ = [
     "format_uptime",
 ]
 
-DATA_DIR = Path(os.environ.get("FREENET_DATA_DIR") or "/data")
-STATS_PATH = DATA_DIR / "stats.json"
-
 DEFAULT_CHUNK_SIZE = 16 * 1024
 DEFAULT_CONNECT_TIMEOUT = 10.0
-STATS_FLUSH_INTERVAL = 30.0
 
 _PROCESS_START_MONOTONIC = time.monotonic()
-
-
-def _to_nonnegative_int(value: Any) -> int:
-    try:
-        value = int(value)
-    except Exception:
-        return 0
-    return value if value >= 0 else 0
 
 
 def format_bytes(value: int) -> str:
@@ -89,80 +73,12 @@ def format_uptime(seconds: float) -> str:
 
 
 class Stats:
-    def __init__(self, path: Optional[Path] = None) -> None:
-        if path is None:
-            self._path = STATS_PATH
-            self._enabled = DATA_DIR.is_dir()
-        else:
-            self._path = Path(path)
-            self._enabled = self._path.parent.is_dir()
+    """Track aggregate traffic counters for the lifetime of this process."""
 
+    def __init__(self) -> None:
         self._start_time = _PROCESS_START_MONOTONIC
         self.total_upload = 0
         self.total_download = 0
-        self._dirty = False
-        self._last_flush = time.monotonic()
-
-        self._load()
-        atexit.register(self.flush)
-
-    def _load(self) -> None:
-        if not self._enabled:
-            return
-
-        try:
-            if not self._path.is_file():
-                return
-
-            raw = json.loads(self._path.read_text(encoding="utf-8"))
-            if not isinstance(raw, dict):
-                raise ValueError("Stats file is not a JSON object")
-
-            self.total_upload = _to_nonnegative_int(
-                raw.get("total_upload", raw.get("upload", 0))
-            )
-            self.total_download = _to_nonnegative_int(
-                raw.get("total_download", raw.get("download", 0))
-            )
-        except Exception:
-            self.total_upload = 0
-            self.total_download = 0
-            self._dirty = True
-
-    def flush(self) -> None:
-        if not self._enabled:
-            return
-
-        tmp_path = None
-        try:
-            payload = {
-                "total_upload": int(self.total_upload),
-                "total_download": int(self.total_download),
-                "saved_at": int(time.time()),
-            }
-
-            tmp_path = self._path.with_name(self._path.name + ".tmp")
-            with open(tmp_path, "w", encoding="utf-8") as f:
-                json.dump(payload, f)
-                f.flush()
-
-            os.replace(tmp_path, self._path)
-            self._dirty = False
-            self._last_flush = time.monotonic()
-        except Exception:
-            if tmp_path is not None:
-                try:
-                    if tmp_path.exists():
-                        tmp_path.unlink()
-                except Exception:
-                    pass
-            self._enabled = False
-
-    def _maybe_flush(self) -> None:
-        if not self._enabled or not self._dirty:
-            return
-        if time.monotonic() - self._last_flush >= STATS_FLUSH_INTERVAL:
-            self.flush()
 
     def add_upload(self, size: int) -> None:
         try:
@@ -174,8 +90,6 @@ class Stats:
             return
 
         self.total_upload += size
-        self._dirty = True
-        self._maybe_flush()
 
     def add_download(self, size: int) -> None:
         try:
@@ -187,8 +101,6 @@ class Stats:
             return
 
         self.total_download += size
-        self._dirty = True
-        self._maybe_flush()
 
     def uptime_seconds(self) -> float:
         return max(0.0, time.monotonic() - self._start_time)
@@ -206,7 +118,6 @@ def get_global_stats() -> Stats:
 
 def get_stats() -> Dict[str, str]:
     stats = get_global_stats()
-    stats._maybe_flush()
     return {
         "uptime": format_uptime(stats.uptime_seconds()),
         "upload": format_bytes(stats.total_upload),

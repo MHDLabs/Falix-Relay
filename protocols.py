@@ -2,23 +2,13 @@
 
 import asyncio
 import ipaddress
-import os
 import struct
 import time
 from typing import Dict, Optional
-from uuid import UUID
-
 from fastapi import Request, WebSocket
 from fastapi.responses import Response, StreamingResponse
 
 from core import Relay, Target, get_global_stats, open_target, relay_to_target
-
-_vless_uuid_str = os.environ.get("VLESS_UUID", "")
-try:
-    _VLESS_UUID_BYTES = UUID(_vless_uuid_str).bytes if _vless_uuid_str else b""
-except ValueError:
-    _VLESS_UUID_BYTES = b""
-
 
 class WSReader:
     def __init__(self, ws: WebSocket):
@@ -52,7 +42,7 @@ class WSReader:
         return bytes(self.buffer)
 
 
-async def handle_vless(ws: WebSocket) -> None:
+async def handle_vless(ws: WebSocket, expected_uuid: bytes) -> None:
     await ws.accept()
     reader = WSReader(ws)
 
@@ -62,7 +52,7 @@ async def handle_vless(ws: WebSocket) -> None:
             return
 
         req_uuid = await reader.read(16)
-        if req_uuid != _VLESS_UUID_BYTES:
+        if req_uuid != expected_uuid:
             return
 
         opt_len = (await reader.read(1))[0]
@@ -168,11 +158,12 @@ MAX_BUFFERED_BYTES = 8 * 1024 * 1024
 SESSION_TIMEOUT = 300
 
 _sessions: Dict[str, "XHTTPSession"] = {}
-_cleanup_task_started = False
+_cleanup_task: Optional[asyncio.Task] = None
 
 
-def _parse_vless_header(data: bytes):
-    if len(data) < 18 or data[0] != 0 or data[1:17] != _VLESS_UUID_BYTES:
+def _parse_vless_header(data: bytes, expected_uuid: bytes):
+    """Decode a VLESS TCP request header and return host, port, and payload."""
+    if len(data) < 18 or data[0] != 0 or data[1:17] != expected_uuid:
         return None, None, None
     opt_len = data[17]
     offset = 18 + opt_len
@@ -230,14 +221,14 @@ async def _target_pump(reader: asyncio.StreamReader, queue: asyncio.Queue, stats
 
 
 class XHTTPSession:
-    def __init__(self, session_id: str, mode: str):
+    def __init__(self, session_id: str):
         self.session_id = session_id
-        self.mode = mode
         self.created_at = time.time()
         self.last_seen = time.time()
         self.target_reader: Optional[asyncio.StreamReader] = None
         self.target_writer: Optional[asyncio.StreamWriter] = None
         self.target_connected = False
+        self.upload_finished = False
         self.downlink_queue: asyncio.Queue = asyncio.Queue(maxsize=1024)
         self.downlink_connected = False
         self.downlink_task: Optional[asyncio.Task] = None
@@ -276,15 +267,27 @@ async def _cleanup_sessions():
                 await session.close()
 
 
-def _ensure_cleanup():
-    global _cleanup_task_started
-    if not _cleanup_task_started:
-        asyncio.create_task(_cleanup_sessions())
-        _cleanup_task_started = True
+def start_background_tasks() -> None:
+    """Start periodic cleanup for idle XHTTP sessions."""
+    global _cleanup_task
+    if _cleanup_task is None or _cleanup_task.done():
+        _cleanup_task = asyncio.create_task(_cleanup_sessions())
 
 
-async def handle_xhttp(request: Request):
-    _ensure_cleanup()
+async def stop_background_tasks() -> None:
+    """Stop cleanup and close all sessions when the app shuts down."""
+    global _cleanup_task
+    if _cleanup_task is not None:
+        _cleanup_task.cancel()
+        await asyncio.gather(_cleanup_task, return_exceptions=True)
+        _cleanup_task = None
+
+    sessions = list(_sessions.values())
+    _sessions.clear()
+    await asyncio.gather(*(session.close() for session in sessions), return_exceptions=True)
+
+
+async def handle_xhttp(request: Request, expected_uuid: bytes):
     stats = get_global_stats()
     path = request.scope.get("path", "")
     parts = [part for part in path.split("/") if part]
@@ -301,7 +304,7 @@ async def handle_xhttp(request: Request):
     if not session:
         if len(_sessions) >= MAX_SESSIONS:
             return Response(content="Too many sessions", status_code=503)
-        session = XHTTPSession(session_id, mode)
+        session = XHTTPSession(session_id)
         _sessions[session_id] = session
 
     session.last_seen = time.time()
@@ -367,7 +370,7 @@ async def handle_xhttp(request: Request):
                 return Response(content="Session closed", status_code=410)
             if not session.target_connected:
                 if seq == 0:
-                    host, port, payload = _parse_vless_header(bytes(body))
+                    host, port, payload = _parse_vless_header(bytes(body), expected_uuid)
                     if not host:
                         await session.close()
                         return Response(content="Invalid VLESS header", status_code=400)
@@ -430,6 +433,9 @@ async def handle_xhttp(request: Request):
         return Response(content='{"ok":true}', media_type="application/json")
 
     if mode == "stream-up":
+        if session.upload_finished:
+            return Response(content="Upload stream already finished", status_code=410)
+
         if not session.target_connected:
             header_buf = bytearray()
             header_parsed = False
@@ -439,7 +445,9 @@ async def handle_xhttp(request: Request):
                         break
                     if not header_parsed:
                         header_buf.extend(chunk)
-                        host, port, payload = _parse_vless_header(bytes(header_buf))
+                        host, port, payload = _parse_vless_header(
+                            bytes(header_buf), expected_uuid
+                        )
                         if host is not None:
                             header_parsed = True
                             try:
@@ -492,10 +500,13 @@ async def handle_xhttp(request: Request):
 
         if session.target_connected and session.target_writer:
             try:
-                session.target_writer.close()
-                await session.target_writer.wait_closed()
+                if session.target_writer.can_write_eof():
+                    session.target_writer.write_eof()
+                    await session.target_writer.drain()
+                session.upload_finished = True
             except Exception:
-                pass
+                await session.close()
+                return Response(content="Could not finish upload stream", status_code=502)
         return Response(content='{"ok":true}', media_type="application/json")
 
     return Response(content="Unsupported mode", status_code=400)

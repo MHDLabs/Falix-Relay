@@ -1,95 +1,54 @@
 import os
-import sys
-import json
 import uuid
 import logging
-from pathlib import Path
+import base64
+import secrets
+from contextlib import asynccontextmanager
+from typing import AsyncIterator
+from urllib.parse import quote
+
 from fastapi import FastAPI, WebSocket, Request
 from fastapi.responses import PlainTextResponse, Response
+
+import core
+import protocols
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("FreeNET")
 
-DATA_DIR = Path(os.environ.get("FREENET_DATA_DIR") or "/data")
-os.environ["FREENET_DATA_DIR"] = str(DATA_DIR)
-IDENTITY_PATH = DATA_DIR / "identity.json"
+SUBSCRIPTION_SECRET = os.environ.get("SEC") or secrets.token_urlsafe(24)
+IDENTITY_UUID = uuid.UUID(os.environ.get("VLESS_UUID", str(uuid.uuid4())))
 
-def load_or_create_identity() -> dict:
-    if not DATA_DIR.exists() or not DATA_DIR.is_dir():
-        logger.error(
-            "Data directory %s is not available. A persistent volume is required.",
-            DATA_DIR,
-        )
-        sys.exit(1)
 
-    if IDENTITY_PATH.exists():
-        try:
-            with open(IDENTITY_PATH, "r", encoding="utf-8") as f:
-                data = json.load(f)
-            if not isinstance(data, dict):
-                raise ValueError("Identity is not a JSON object")
-            if not isinstance(data.get("uuid"), str):
-                raise ValueError("Missing or invalid UUID")
-            parsed_uuid = uuid.UUID(data["uuid"])
-            identity = {"uuid": str(parsed_uuid)}
-            if data != identity:
-                tmp_path = IDENTITY_PATH.with_name(IDENTITY_PATH.name + ".tmp")
-                with open(tmp_path, "w", encoding="utf-8") as f:
-                    json.dump(identity, f, indent=2)
-                os.chmod(tmp_path, 0o600)
-                os.replace(tmp_path, IDENTITY_PATH)
-            return identity
-        except Exception as e:
-            logger.error(
-                "Identity file is corrupted or invalid. Refusing to regenerate to protect existing links. Error: %s",
-                e,
-            )
-            sys.exit(1)
-
-    logger.info("Generating new identity...")
-    identity = {"uuid": str(uuid.uuid4())}
-    tmp_path = IDENTITY_PATH.with_name(IDENTITY_PATH.name + ".tmp")
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    protocols.start_background_tasks()
+    public_domain = os.environ.get("RAILWAY_PUBLIC_DOMAIN", "localhost:8000")
+    subscription_url = f"https://{public_domain}/sub/{quote(SUBSCRIPTION_SECRET, safe='')}"
+    logger.info(
+        "\nSubscription URL: %s\n"
+        "If SEC is not set, this link changes after redeploy. "
+        "Set SEC in Railway Variables to keep it stable.",
+        subscription_url,
+    )
     try:
-        with open(tmp_path, "w", encoding="utf-8") as f:
-            json.dump(identity, f, indent=2)
-        os.chmod(tmp_path, 0o600)
-        os.replace(tmp_path, IDENTITY_PATH)
-    except Exception as e:
-        logger.error(
-            "Failed to persist identity file. Refusing to start with ephemeral identity. Error: %s",
-            e,
-        )
-        try:
-            if tmp_path.exists():
-                tmp_path.unlink()
-        except Exception:
-            pass
-        sys.exit(1)
-    return identity
+        yield
+    finally:
+        await protocols.stop_background_tasks()
 
-IDENTITY = load_or_create_identity()
-os.environ["VLESS_UUID"] = IDENTITY["uuid"]
 
-try:
-    _IDENTITY_UUID = uuid.UUID(IDENTITY["uuid"])
-except Exception as e:
-    logger.error("Invalid identity UUID. Error: %s", e)
-    sys.exit(1)
-
-import protocols
-import core
-
-app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
+app = FastAPI(
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
+    lifespan=lifespan,
+)
 
 def _uuid_matches(value: str) -> bool:
     try:
-        return uuid.UUID(value) == _IDENTITY_UUID
+        return uuid.UUID(value) == IDENTITY_UUID
     except Exception:
         return False
-
-@app.on_event("startup")
-async def startup() -> None:
-    logger.info("FreeNET started")
 
 @app.get("/")
 async def root():
@@ -100,16 +59,89 @@ async def health():
     return {"status": "ok"}
 
 @app.websocket("/vless/{client_uuid}")
-async def ws_vless(ws: WebSocket, client_uuid: str):
+async def websocket_vless(ws: WebSocket, client_uuid: str):
     if not _uuid_matches(client_uuid):
         await ws.close(code=1008, reason="Invalid UUID")
         return
-    await protocols.handle_vless(ws)
+    await protocols.handle_vless(ws, IDENTITY_UUID.bytes)
 
 async def _handle_xhttp_request(client_uuid: str, request: Request):
     if not _uuid_matches(client_uuid):
         return Response(content="Not Found", status_code=404)
-    return await protocols.handle_xhttp(request)
+    return await protocols.handle_xhttp(request, IDENTITY_UUID.bytes)
+
+
+def _public_host(request: Request) -> str:
+    forwarded_host = request.headers.get("x-forwarded-host")
+    host = (forwarded_host or request.headers.get("host") or "localhost").split(",", 1)[0].strip()
+    if host.startswith("["):
+        closing_bracket = host.find("]")
+        if closing_bracket != -1:
+            return host[1:closing_bracket]
+    if host.count(":") == 1:
+        return host.rsplit(":", 1)[0]
+    return host
+
+
+def _format_host(host: str) -> str:
+    return f"[{host}]" if ":" in host else host
+
+
+def _query_string(parameters: dict[str, str]) -> str:
+    return "&".join(
+        f"{key}={quote(value, safe='')}" for key, value in parameters.items()
+    )
+
+
+@app.get("/sub/{secret}")
+async def subscription(secret: str, request: Request):
+    if not secrets.compare_digest(secret, SUBSCRIPTION_SECRET):
+        return Response(content="Not Found", status_code=404)
+
+    host = _public_host(request)
+    formatted_host = _format_host(host)
+    configs = []
+    transports = (
+        ("ws", None, "FreeNET-VLESS-WS"),
+        ("xhttp", "packet-up", "FreeNET-XHTTP-Packet-Up"),
+        ("xhttp", "stream-up", "FreeNET-XHTTP-Stream-Up"),
+    )
+    for transport, mode, name in transports:
+        parameters = {
+            "encryption": "none",
+            "security": "tls",
+            "type": transport,
+            "host": formatted_host,
+            "path": f"/vless/{IDENTITY_UUID}" if transport == "ws" else f"/xhttp/{IDENTITY_UUID}",
+            "sni": host,
+            "fp": "chrome",
+            "alpn": "h2,http/1.1",
+        }
+        if mode:
+            parameters["mode"] = mode
+        configs.append(
+            f"vless://{IDENTITY_UUID}@{formatted_host}:443?{_query_string(parameters)}#{name}"
+        )
+
+    stats = core.get_global_stats()
+    status = (
+        f"📊 FreeNET • {core.format_uptime(stats.uptime_seconds())} • "
+        f"↑{core.format_bytes(stats.total_upload)} "
+        f"↓{core.format_bytes(stats.total_download)}"
+    )
+    configs.append(
+        "vless://00000000-0000-0000-0000-000000000000@127.0.0.1:1"
+        f"?type=tcp&security=none&encryption=none#{quote(status)}"
+    )
+    encoded = base64.b64encode("\n".join(configs).encode("utf-8")).decode("ascii")
+    return Response(
+        content=encoded,
+        media_type="text/plain",
+        headers={
+            "Cache-Control": "no-store",
+            "Profile-Title": base64.b64encode(b"FreeNET").decode("ascii"),
+        },
+    )
 
 @app.api_route("/xhttp/{client_uuid}", methods=["GET", "POST"])
 async def xhttp_base(client_uuid: str, request: Request):
