@@ -1,6 +1,6 @@
 # 🚀 FreeNET
 
-> Minimal VLESS proxy server with WebSocket and XHTTP transports.
+> A small VLESS server with WebSocket and XHTTP transports.
 
 [🇮🇷 فارسی](README-fa.md)
 
@@ -12,83 +12,85 @@
 
 ---
 
-## Overview
+## What it does
 
-FreeNET is a small VLESS server intended for deployment behind an HTTP/HTTPS reverse proxy such as Railway. It provides these transports:
+FreeNET is a single-UUID VLESS server intended to run behind a public HTTP/HTTPS service such as Railway. It supports:
 
 - VLESS over WebSocket
 - VLESS over XHTTP `packet-up`
 - VLESS over XHTTP `stream-up`
 
-There is no web panel, subscription service, user database, or Trojan implementation. Configure your client manually with the instance domain and the UUID stored in `/data/identity.json`.
-
-All proxy destinations use TCP. TLS termination and public HTTPS access must be provided by the hosting platform or reverse proxy.
+The server accepts TCP destinations only; UDP is not implemented. TLS is terminated by the public hosting platform. This project has no user panel, per-user accounts, database, or Trojan support.
 
 ## Deploy on Railway
 
-1. Deploy this repository as a Railway service.
-2. Attach a persistent volume mounted at `/data`.
-3. Assign a public domain and enable HTTPS.
+1. Fork this repository and deploy the fork as a Railway service. Give your fork/repository a name of your choosing.
+2. Sign in to Railway using a GitHub account you own and authorize Railway to access the fork. Use an account that satisfies Railway's current account and service policies; deployment approval cannot be guaranteed by this project.
+3. Generate a Railway public domain and wait for the deployment health check at `/health` to pass.
 
-Railway supplies the listening port through `PORT`; the app binds to `0.0.0.0`. The health endpoint is `/health`.
+No persistent volume or `/data` directory is required. Railway provides `PORT`; the app listens on `0.0.0.0` and Railway provides public HTTPS/TLS.
 
-The persistent directory contains:
+### Keep your identifiers stable
 
-- `/data/identity.json` — the service VLESS UUID.
-- `/data/stats.json` — aggregate upload/download counters.
-
-Keep the volume to retain the same UUID and statistics across restarts. If migrating from an older installation, the app reads the UUID from the existing identity file and removes obsolete Trojan/subscription fields.
-
-## Client endpoints
-
-### VLESS WebSocket
-
-- WebSocket path: `/vless/<uuid>`
-- Transport: WebSocket
-- TLS: enabled at the public proxy; use the public hostname as SNI/Host where required.
-- Encryption: `none`
-
-### VLESS XHTTP
-
-- HTTP path: `/xhttp/<uuid>` (additional path components are accepted)
-- Methods: `GET` and `POST`
-- Modes: `packet-up` and `stream-up`
-- Encryption: `none`
-
-Choose the transport and XHTTP mode in the client configuration. The server does not provide or publish generated client links.
-
-## Configuration and storage
+The optional environment variables are:
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `PORT` | `8000` | HTTP listen port (normally set by Railway) |
-| `FREENET_DATA_DIR` | `/data` | Directory for identity and statistics |
+| `SEC` | Random value at process start | Secret embedded in the subscription URL. Set it in Railway Variables to keep the URL stable across redeploys. |
+| `VLESS_UUID` | Random UUID at process start | UUID used by the VLESS server and generated client links. Set it in Railway Variables to keep client configurations stable across redeploys. |
+| `PORT` | `8000` | HTTP listen port; normally supplied by Railway. |
 
-Create the data directory before running locally:
+At startup, the complete subscription URL is printed in the deployment logs. If `SEC` is not configured, the generated subscription URL changes whenever the process restarts or redeploys. If `VLESS_UUID` is not configured, clients must also be updated to use the newly generated UUID after a restart. The server stores neither value persistently.
 
-```bash
-mkdir -p data
-FREENET_DATA_DIR=./data PORT=8000 python main.py
+Keep `SEC` and `VLESS_UUID` private. Anyone who obtains the subscription URL can download the client configuration, and anyone who obtains the UUID can attempt to connect to the proxy.
+
+## Subscription and transports
+
+Open the logged URL:
+
+```text
+https://<railway-domain>/sub/<SEC>
 ```
 
-The UUID is generated at first launch and saved to `data/identity.json`. Set that UUID in your client. For real client connections, use a public TLS-enabled domain.
+It returns a Base64-encoded subscription containing three connectable VLESS entries and one display-only status entry:
 
-Statistics are aggregate for the whole instance; upload and download values persist with the data volume. Uptime is for the current process and resets on restart.
+| Entry | Transport | Server path | Notes |
+| --- | --- | --- | --- |
+| FreeNET-VLESS-WS | WebSocket | `/vless/<uuid>` | TLS at the public domain; ALPN `http/1.1`. |
+| FreeNET-XHTTP-Packet-Up | XHTTP `packet-up` | `/xhttp/<uuid>` | HTTP `GET`/`POST`; TLS at the public domain. |
+| FreeNET-XHTTP-Stream-Up | XHTTP `stream-up` | `/xhttp/<uuid>` | HTTP `GET`/`POST`; TLS at the public domain. |
+| FreeNET status | Display-only | Not a server endpoint | Shows process uptime and aggregate traffic; it is not a connection configuration. |
+
+The subscription response also includes aggregate upload/download metadata. Counters and uptime are in memory: they reset on process restart and are not saved to disk.
+
+## Run locally with Python
+
+Python 3.12 or newer is recommended.
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+SEC=change-this-secret VLESS_UUID=12345678-1234-5678-1234-567812345678 PORT=8000 python main.py
+```
+
+Open `http://localhost:8000/sub/change-this-secret` to retrieve the subscription. For use from client devices, configure a reachable public domain with TLS termination and set the corresponding `RAILWAY_PUBLIC_DOMAIN` environment variable for the startup URL.
 
 ## Docker
 
+The container is stateless and does not need a volume:
+
 ```bash
 docker build -t freenet .
-docker volume create freenet-data
-docker run --rm -p 8000:8000 -e PORT=8000 -v freenet-data:/data freenet
+docker run --rm -p 8000:8000 -e PORT=8000 -e SEC=change-this-secret freenet
 ```
 
 ## Project structure
 
 ```text
 FreeNET/
-├── main.py          # FastAPI app, UUID persistence, and HTTP routes
-├── core.py          # TCP relay and aggregate statistics
+├── main.py          # FastAPI app, subscription, UUID validation, and routes
+├── core.py          # TCP relay, in-memory traffic counters, and uptime
 ├── protocols.py     # VLESS WebSocket and XHTTP transports
 ├── Dockerfile
 ├── railway.json
