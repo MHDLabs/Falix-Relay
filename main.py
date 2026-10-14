@@ -115,7 +115,7 @@ async def subscription(secret: str, request: Request):
             "path": f"/vless/{IDENTITY_UUID}" if transport == "ws" else f"/xhttp/{IDENTITY_UUID}",
             "sni": host,
             "fp": "chrome",
-            "alpn": "h2,http/1.1",
+            "alpn": "http/1.1" if transport == "ws" else "h2,http/1.1",
         }
         if mode:
             parameters["mode"] = mode
@@ -139,7 +139,10 @@ async def subscription(secret: str, request: Request):
         media_type="text/plain",
         headers={
             "Cache-Control": "no-store",
-            "Profile-Title": base64.b64encode(b"FreeNET").decode("ascii"),
+            "Profile-Title": base64.b64encode(status.encode("utf-8")).decode("ascii"),
+            "Subscription-Userinfo": (
+                f"upload={stats.total_upload}; download={stats.total_download}; total=0; expire=0"
+            ),
         },
     )
 
