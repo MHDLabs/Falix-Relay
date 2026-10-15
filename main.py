@@ -55,7 +55,7 @@ async def root():
     return PlainTextResponse("FreeNET")
 
 @app.get("/health")
-async def health():
+async def health_check():
     return {"status": "ok"}
 
 @app.websocket("/vless/{client_uuid}")
@@ -120,7 +120,7 @@ async def subscription(secret: str, request: Request):
         if mode:
             parameters["mode"] = mode
         configs.append(
-            f"vless://{IDENTITY_UUID}@{formatted_host}:443?{_query_string(parameters)}""
+            f"vless://{IDENTITY_UUID}@{formatted_host}:443?{_query_string(parameters)}"
         )
 
     stats = core.get_global_stats()
@@ -131,7 +131,7 @@ async def subscription(secret: str, request: Request):
     )
     configs.append(
         "vless://00000000-0000-0000-0000-000000000000@127.0.0.1:1"
-        f"?type=tcp&security=none&encryption=none
+        f"?type=tcp&security=none&encryption=none"
     )
     encoded = base64.b64encode("\n".join(configs).encode("utf-8")).decode("ascii")
     return Response(
