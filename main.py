@@ -11,7 +11,7 @@ from fastapi import FastAPI, WebSocket, Request
 from fastapi.responses import PlainTextResponse, Response
 
 import core
-import protocols
+import health
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("FreeNET")
@@ -22,7 +22,7 @@ IDENTITY_UUID = uuid.UUID(os.environ.get("VLESS_UUID", str(uuid.uuid4())))
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-    protocols.start_background_tasks()
+    health.start_background_tasks()
     public_domain = os.environ.get("RAILWAY_PUBLIC_DOMAIN", "localhost:8000")
     subscription_url = f"https://{public_domain}/sub/{quote(SUBSCRIPTION_SECRET, safe='')}"
     logger.info(
@@ -34,7 +34,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     try:
         yield
     finally:
-        await protocols.stop_background_tasks()
+        await health.stop_background_tasks()
 
 
 app = FastAPI(
@@ -63,12 +63,12 @@ async def websocket_vless(ws: WebSocket, client_uuid: str):
     if not _uuid_matches(client_uuid):
         await ws.close(code=1008, reason="Invalid UUID")
         return
-    await protocols.handle_vless(ws, IDENTITY_UUID.bytes)
+    await health.handle_vless(ws, IDENTITY_UUID.bytes)
 
 async def _handle_xhttp_request(client_uuid: str, request: Request):
     if not _uuid_matches(client_uuid):
         return Response(content="Not Found", status_code=404)
-    return await protocols.handle_xhttp(request, IDENTITY_UUID.bytes)
+    return await health.handle_xhttp(request, IDENTITY_UUID.bytes)
 
 
 def _public_host(request: Request) -> str:
@@ -120,7 +120,7 @@ async def subscription(secret: str, request: Request):
         if mode:
             parameters["mode"] = mode
         configs.append(
-            f"vless://{IDENTITY_UUID}@{formatted_host}:443?{_query_string(parameters)}#{name}"
+            f"vless://{IDENTITY_UUID}@{formatted_host}:443?{_query_string(parameters)}""
         )
 
     stats = core.get_global_stats()
@@ -131,7 +131,7 @@ async def subscription(secret: str, request: Request):
     )
     configs.append(
         "vless://00000000-0000-0000-0000-000000000000@127.0.0.1:1"
-        f"?type=tcp&security=none&encryption=none#{quote(status)}"
+        f"?type=tcp&security=none&encryption=none
     )
     encoded = base64.b64encode("\n".join(configs).encode("utf-8")).decode("ascii")
     return Response(

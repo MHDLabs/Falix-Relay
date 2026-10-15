@@ -1,6 +1,6 @@
 # 🚀 FreeNET
 
-> سرور VLESS با انتقال‌های WebSocket و XHTTP
+> پروژه‌ای آموزشی و آزمایشی برای آشنایی با مدیریت انتقال‌های VLESS در Python
 
 [🇬🇧 English](README.md)
 
@@ -12,21 +12,23 @@
 
 ---
 
-## معرفی
+## هدف و محدوده پروژه
 
-FreeNET یک سرور VLESS با یک UUID است که برای اجرا پشت سرویس عمومی HTTP/HTTPS مانند Railway طراحی شده است. انتقال‌های پشتیبانی‌شده:
+FreeNET یک پروژه آموزشی برای مطالعه و آزمایش نحوه‌ی پردازش هدرهای VLESS و انتقال داده‌ی TCP روی WebSocket و تبادل‌های HTTP به سبک XHTTP در Python است. هدف آن یادگیری و آزمایش محلی است و یک محصول کامل یا آماده‌ی استفاده‌ی عملیاتی محسوب نمی‌شود.
+
+برنامه‌ی نمونه این حالت‌ها را دارد:
 
 - VLESS روی WebSocket
 - VLESS روی XHTTP با حالت `packet-up`
 - VLESS روی XHTTP با حالت `stream-up`
 
-مقصدهای پروکسی فقط از TCP پشتیبانی می‌کنند؛ UDP پیاده‌سازی نشده است. TLS در پلتفرم میزبانی خاتمه می‌یابد. پنل کاربری، حساب‌های جداگانه، دیتابیس و Trojan وجود ندارند.
+پیاده‌سازی فقط مقصدهای TCP را پشتیبانی می‌کند و UDP در آن پیاده‌سازی نشده است. هنگام استقرار، TLS می‌تواند در پلتفرم میزبانی خاتمه یابد. مدیریت کاربر، دیتابیس و Trojan در این repository وجود ندارد.
 
 ## استقرار روی Railway
 
 1. از این repository یک Fork بسازید و Fork را به‌عنوان سرویس Railway مستقر کنید. نام Fork یا repository را به دلخواه انتخاب کنید.
 2. با حساب GitHub خود وارد Railway شوید و دسترسی Railway به Fork را تأیید کنید. از حسابی استفاده کنید که با شرایط جاری حساب و سرویس Railway سازگار باشد؛ این پروژه نمی‌تواند پذیرش یا عدم محدودیت حساب را تضمین کند.
-3. یک Railway Domain عمومی بسازید و منتظر موفق شدن Health check در مسیر `/health` بمانید.
+3. یک Railway Domain عمومی بسازید و منتظر موفق شدن بررسی سلامت برنامه در مسیر `/health` بمانید.
 
 Volume پایدار یا مسیر `/data` نیاز نیست. Railway مقدار `PORT` را فراهم می‌کند؛ برنامه روی `0.0.0.0` گوش می‌دهد و HTTPS/TLS عمومی را Railway مدیریت می‌کند.
 
@@ -42,24 +44,24 @@ Volume پایدار یا مسیر `/data` نیاز نیست. Railway مقدار 
 
 هنگام شروع برنامه، لینک کامل Subscription در لاگ‌های Deploy چاپ می‌شود. اگر `SEC` تنظیم نشده باشد، لینک Subscription با هر restart یا redeploy تغییر می‌کند. اگر `VLESS_UUID` تنظیم نشده باشد، کلاینت‌ها نیز پس از restart به UUID جدید نیاز دارند. هیچ‌کدام از این مقادیر به‌صورت پایدار روی دیسک ذخیره نمی‌شوند.
 
-`SEC` و `VLESS_UUID` را محرمانه نگه دارید. هرکسی لینک Subscription را داشته باشد می‌تواند کانفیگ‌ها را دریافت کند و هرکسی UUID را بداند می‌تواند برای اتصال به سرور تلاش کند.
+`SEC` و `VLESS_UUID` را محرمانه نگه دارید. هرکسی لینک Subscription را داشته باشد می‌تواند کانفیگ‌های نمونه را دریافت کند و هرکسی UUID را بداند می‌تواند endpointهای آزمایشی را فراخوانی کند.
 
 ## Subscription و انتقال‌ها
 
-لینکی را که در لاگ چاپ شده باز کنید:
+برای آزمایش، لینکی را که در لاگ چاپ شده باز کنید:
 
 ```text
 https://<railway-domain>/sub/<SEC>
 ```
 
-پاسخ به‌صورت Base64 است و شامل سه کانفیگ قابل اتصال و یک مورد نمایشی وضعیت است:
+پاسخ به‌صورت Base64 است و شامل سه کانفیگ آزمایشی VLESS و یک مورد نمایشی وضعیت است:
 
 | مورد | انتقال | مسیر سرور | توضیح |
 | --- | --- | --- | --- |
 | FreeNET-VLESS-WS | WebSocket | `/vless/<uuid>` | TLS روی دامنه عمومی؛ ALPN برابر `http/1.1`. |
 | FreeNET-XHTTP-Packet-Up | XHTTP `packet-up` | `/xhttp/<uuid>` | متدهای HTTP `GET` و `POST`؛ TLS روی دامنه عمومی. |
 | FreeNET-XHTTP-Stream-Up | XHTTP `stream-up` | `/xhttp/<uuid>` | متدهای HTTP `GET` و `POST`؛ TLS روی دامنه عمومی. |
-| وضعیت FreeNET | فقط نمایشی | مسیر اتصال ندارد | Uptime process و ترافیک کلی را نمایش می‌دهد و کانفیگ اتصال نیست. |
+| وضعیت FreeNET | فقط نمایشی | endpoint برنامه نیست | Uptime فرایند و ترافیک کلی را نمایش می‌دهد و کانفیگ اتصال نیست. |
 
 هدرهای پاسخ Subscription نیز آمار کلی Upload و Download را دارند. شمارنده‌ها و Uptime فقط در حافظه هستند؛ با restart پاک می‌شوند و روی دیسک ذخیره نمی‌شوند.
 
@@ -74,7 +76,7 @@ pip install -r requirements.txt
 SEC=change-this-secret VLESS_UUID=12345678-1234-5678-1234-567812345678 PORT=8000 python main.py
 ```
 
-برای دریافت Subscription محلی، `http://localhost:8000/sub/change-this-secret` را باز کنید. برای اتصال کلاینت از دستگاه‌های دیگر، دامنه عمومی قابل دسترس با TLS لازم است. برای چاپ URL شروع برنامه، متغیر `RAILWAY_PUBLIC_DOMAIN` را هم تنظیم کنید.
+برای مشاهده‌ی کانفیگ‌های آزمایشی، `http://localhost:8000/sub/change-this-secret` را باز کنید. برای آزمایش از طریق دامنه‌ی عمومی، خاتمه‌ی TLS را تنظیم کنید و مقدار `RAILWAY_PUBLIC_DOMAIN` را برابر دامنه‌ی مورد استفاده برای URL شروع برنامه قرار دهید.
 
 ## Docker
 
@@ -89,9 +91,9 @@ docker run --rm -p 8000:8000 -e PORT=8000 -e SEC=change-this-secret freenet
 
 ```text
 FreeNET/
-├── main.py          # برنامه FastAPI، Subscription، اعتبارسنجی UUID و مسیرها
-├── core.py          # TCP relay، شمارنده ترافیک حافظه‌ای و uptime
-├── protocols.py     # انتقال‌های VLESS WebSocket و XHTTP
+├── main.py          # برنامه FastAPI، Subscription آزمایشی، بررسی UUID و مسیرها
+├── core.py          # انتقال داده TCP، شمارنده‌های حافظه‌ای و uptime
+├── health.py        # پردازش درخواست‌های VLESS WebSocket و XHTTP
 ├── Dockerfile
 ├── railway.json
 ├── requirements.txt

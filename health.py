@@ -1,4 +1,4 @@
-"""VLESS transports: WebSocket and XHTTP packet-up/stream-up."""
+
 
 import asyncio
 import ipaddress
@@ -162,7 +162,7 @@ _cleanup_task: Optional[asyncio.Task] = None
 
 
 def _parse_vless_header(data: bytes, expected_uuid: bytes):
-    """Decode a VLESS TCP request header and return host, port, and payload."""
+    
     if len(data) < 18 or data[0] != 0 or data[1:17] != expected_uuid:
         return None, None, None
     opt_len = data[17]
@@ -268,14 +268,14 @@ async def _cleanup_sessions():
 
 
 def start_background_tasks() -> None:
-    """Start periodic cleanup for idle XHTTP sessions."""
+    
     global _cleanup_task
     if _cleanup_task is None or _cleanup_task.done():
         _cleanup_task = asyncio.create_task(_cleanup_sessions())
 
 
 async def stop_background_tasks() -> None:
-    """Stop cleanup and close all sessions when the app shuts down."""
+    
     global _cleanup_task
     if _cleanup_task is not None:
         _cleanup_task.cancel()

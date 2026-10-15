@@ -73,7 +73,7 @@ def format_uptime(seconds: float) -> str:
 
 
 class Stats:
-    """Track aggregate traffic counters for the lifetime of this process."""
+    
 
     def __init__(self) -> None:
         self._start_time = _PROCESS_START_MONOTONIC
