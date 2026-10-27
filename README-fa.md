@@ -82,3 +82,25 @@ vless://<XRAY_UUID>@<PUBLIC_HOST>:443?encryption=none&security=tls&sni=<PUBLIC_H
 ## مجوز
 
 فایل‌های خود Falix-Relay تحت مجوز MHDLabs MIT منتشر می‌شوند. Xray-core پروژه‌ای جداگانه است و مجوز مستقل خودش را دارد.
+
+
+## دریافت ایمیج آماده از GHCR
+
+GitHub Actions با هر پوش به شاخهٔ `main` و همچنین تگ‌های `v*`، ایمیج چندمعماری را در GHCR منتشر می‌کند.
+
+```sh
+docker pull ghcr.io/mhdlabs/falix-relay:latest
+```
+
+تگ‌های قابل انتشار شامل `latest`، تگ کوتاه کامیت (`sha-...`)، تگ شاخه و تگ‌های Git مانند `v1.0.0` هستند. برای دریافت بدون ورود، Package باید در GitHub Packages روی حالت **Public** باشد.
+
+نمونهٔ اجرا با UUID خصوصی و انتشار پورت فقط روی loopback؛ ترافیک عمومی را پشت ورودی TLS/WebSocket قرار بده:
+
+```sh
+docker run --rm \
+  -e XRAY_UUID="$(cat /path/to/private-uuid.txt)" \
+  -e PORT=8080 \
+  -e WS_PATH=/relay \
+  -p 127.0.0.1:8080:8080/tcp \
+  ghcr.io/mhdlabs/falix-relay:latest
+```
