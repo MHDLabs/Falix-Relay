@@ -48,7 +48,7 @@ case "$WS_PATH" in
     ;;
 esac
 
-config_file="$(mktemp /tmp/falix-relay.XXXXXX.json)"
+config_file="$(mktemp /tmp/falix-relay.XXXXXX)"
 trap 'rm -f "$config_file"' EXIT HUP INT TERM
 sed -e "s|__XRAY_UUID__|$XRAY_UUID|g" -e "s|__XRAY_PORT__|$PORT|g" -e "s|__XRAY_WS_PATH__|$WS_PATH|g" /etc/falix-relay/config.template.json > "$config_file"
 if [ ! -s "$config_file" ]; then
