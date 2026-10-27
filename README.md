@@ -106,14 +106,11 @@ docker run --rm \
 ```
 
 
-## Deployment options
+## 📚 Documentation
 
-Falix-Relay keeps the existing Docker image as the supported, straightforward path:
+The setup guide is available in both languages:
 
-```sh
-docker pull ghcr.io/mhdlabs/falix-relay:latest
-```
+- 🇬🇧 [English Docker setup guide](docs/README.md)
+- 🇮🇷 [راهنمای راه‌اندازی فارسی](docs/README-fa.md)
 
-An experimental browser-based setup wizard is being developed separately on the [wizard branch](https://github.com/MHDLabs/Falix-Relay/tree/wizard). It is not part of the stable Docker deployment, and it must verify that the selected Falix server has a compatible Node.js runtime before attempting any installation. The wizard does not change this branch's Docker files or image workflow.
-
-See the [Wizard branch README](https://github.com/MHDLabs/Falix-Relay/blob/wizard/WIZARD.md) for its status, prerequisites, and deployment notes. Until a stable installer release and a compatible Falix runtime have been verified, use the Docker method above for production deployments.
+The guide includes UUID generation, image pull/run commands, configuration, client URI format, and troubleshooting.

@@ -106,14 +106,11 @@ docker run --rm \
 ```
 
 
-## روش‌های راه‌اندازی
+## 📚 مستندات
 
-روش فعلی Docker همچنان مسیر ساده و اصلی پروژه است:
+راهنمای مرحله‌به‌مرحله در دو زبان آماده است:
 
-```sh
-docker pull ghcr.io/mhdlabs/falix-relay:latest
-```
+- 🇮🇷 [راهنمای راه‌اندازی فارسی](docs/README-fa.md)
+- 🇬🇧 [English Docker setup guide](docs/README.md)
 
-یک Wizard آزمایشی مبتنی بر مرورگر به‌صورت مستقل روی [برنچ wizard](https://github.com/MHDLabs/Falix-Relay/tree/wizard) توسعه داده می‌شود. این روش بخشی از استقرار پایدار Docker نیست و پیش از نصب باید سازگاری Runtime از نوع Node.js سرور انتخاب‌شده در Falix را بررسی کند. فایل‌های Docker و روند انتشار ایمیج در این برنچ تغییر نمی‌کنند.
-
-برای وضعیت، پیش‌نیازها و راهنمای انتشار، [مستندات Wizard](https://github.com/MHDLabs/Falix-Relay/blob/wizard/WIZARD-fa.md) را ببین. تا زمانی که انتشار پایدار نصب‌کننده و سازگاری Runtime در Falix واقعاً بررسی نشده، برای استقرار عملی از روش Docker بالا استفاده کن.
+راهنما شامل ساخت UUID خصوصی، دریافت و اجرای ایمیج، تنظیمات، قالب لینک کلاینت و عیب‌یابی است.
