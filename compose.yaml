@@ -1,0 +1,20 @@
+services:
+  falix-relay:
+    build: .
+    image: mhdlabs/falix-relay:local
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      PORT: ${PORT:-8080}
+      WS_PATH: ${WS_PATH:-/relay}
+    ports:
+      - "127.0.0.1:${PORT:-8080}:${PORT:-8080}/tcp"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=1m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    init: true

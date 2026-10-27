@@ -1,102 +1,84 @@
-# 🚀 FreeNET
+# 🛰️ Falix-Relay
 
-> An educational and testing project for learning about VLESS transport handling with Python.
+**Keep it simple:) — MHDLabs**
 
-[🇮🇷 فارسی](README-fa.md)
+Falix-Relay is a tiny, headless relay built around the **official Xray-core**. It has no web panel, database, account system, quotas, traffic accounting, or secondary proxy engine.
 
-![Python](https://img.shields.io/badge/Python-3.12+-3776AB?logo=python&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
-![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
-![Railway](https://img.shields.io/badge/Railway-deploy-0B0D0E?logo=railway&logoColor=white)
-![License](https://img.shields.io/badge/License-MIT-blue)
+## What v1 does
 
----
+- Runs the official Xray binary, pinned to **v26.10.21** and verified against a SHA-256 digest during image build.
+- Serves one VLESS + WebSocket inbound using the UUID from `XRAY_UUID`.
+- Takes the listen port from `PORT` (default: `8080`) and the WebSocket path from `WS_PATH` (default: `/relay`).
+- Runs as a non-root user with a read-only root filesystem in the supplied Compose setup.
+- Provides `check` and `version` commands without adding a management API.
 
-## Purpose and scope
+## Important network requirement
 
-FreeNET is an educational project for studying and testing how a Python application can parse VLESS request headers and carry TCP data over WebSocket and XHTTP-style HTTP exchanges. It is intended for local experiments and code study, not as a complete or production-ready networking product.
+This v1 configuration is for a platform or reverse proxy that **terminates public TLS and forwards HTTP/WebSocket traffic** to Falix-Relay. Xray listens for plain WebSocket inside the container; it does not terminate TLS in this configuration.
 
-The sample application includes:
+Do **not** expose the container's plain WebSocket port directly to an untrusted public network. Put it behind a TLS-enabled ingress/reverse proxy that supports WebSocket upgrades. This minimal configuration does not implement raw-TCP protocol sniffing, REALITY, or a generic multi-protocol router. Those require a different Xray configuration and a compatible network path.
 
-- VLESS over WebSocket
-- VLESS over XHTTP `packet-up`
-- VLESS over XHTTP `stream-up`
+## Quick start with Docker Compose
 
-The implementation handles TCP destinations only; UDP is not implemented. TLS can be terminated by a hosting platform during deployment. The repository does not include user management, a database, or Trojan support.
+1. Copy the environment example:
 
-## Deploy on Railway
+   ```sh
+   cp .env.example .env
+   ```
 
-1. Fork this repository and deploy the fork as a Railway service. Give your fork/repository a name of your choosing.
-2. Sign in to Railway using a GitHub account you own and authorize Railway to access the fork. Use an account that satisfies Railway's current account and service policies; deployment approval cannot be guaranteed by this project.
-3. Generate a Railway public domain and wait for the application health check at `/health` to pass.
+2. Generate your own UUID and set it as `XRAY_UUID` in `.env`. Do not use the example UUID in a real deployment. Keep `.env` private; it is ignored by Git.
 
-No persistent volume or `/data` directory is required. Railway provides `PORT`; the app listens on `0.0.0.0` and Railway provides public HTTPS/TLS.
+3. Build the image and validate the generated configuration:
 
-### Keep your identifiers stable
+   ```sh
+   docker compose build
+   docker compose run --rm falix-relay check
+   ```
 
-The optional environment variables are:
+4. Start the relay:
 
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `SEC` | Random value at process start | Secret embedded in the subscription URL. Set it in Railway Variables to keep the URL stable across redeploys. |
-| `VLESS_UUID` | Random UUID at process start | UUID used by the VLESS server and generated client links. Set it in Railway Variables to keep client configurations stable across redeploys. |
-| `PORT` | `8000` | HTTP listen port; normally supplied by Railway. |
+   ```sh
+   docker compose up -d
+   docker compose logs -f falix-relay
+   ```
 
-At startup, the complete subscription URL is printed in the deployment logs. If `SEC` is not configured, the generated subscription URL changes whenever the process restarts or redeploys. If `VLESS_UUID` is not configured, clients must also be updated to use the newly generated UUID after a restart. The server stores neither value persistently.
+Compose binds the container port to **127.0.0.1** by default. Configure your TLS ingress/reverse proxy to forward WebSocket requests to that local address and port. The platform's public ingress must support WebSocket upgrades.
 
-Keep `SEC` and `VLESS_UUID` private. Anyone who obtains the subscription URL can download the example client configurations, and anyone who obtains the UUID can attempt to use the sample endpoints.
+For a host that injects `PORT`, set it to the internal listening port expected by that platform. This container runs as non-root and supports ports **1024–65535**.
 
-## Subscription and transports
+## Environment variables
 
-For testing, open the logged URL:
+| Variable | Required | Default | Purpose |
+|---|---:|---|---|
+| `XRAY_UUID` | Yes for run/check | — | The sole VLESS client UUID. It is rendered into a temporary config at startup and is never printed by Falix-Relay. |
+| `PORT` | No | `8080` | Container TCP listen port; must be between 1024 and 65535. |
+| `WS_PATH` | No | `/relay` | WebSocket request path. Restricted to a conservative character set. |
+
+No account management, database, quota, bandwidth tracking, web server, QR service, or sing-box dependency is included.
+
+## Validate and inspect
+
+```sh
+docker compose run --rm falix-relay check
+docker compose run --rm falix-relay version
+```
+
+The `check` command runs Xray's own configuration test. It does not test public DNS, TLS ingress, firewall rules, or end-to-end client connectivity.
+
+## Client URI shape
+
+For a TLS-enabled public hostname whose ingress forwards WebSocket traffic to Falix-Relay, a compatible VLESS client URI has this shape:
 
 ```text
-https://<railway-domain>/sub/<SEC>
+vless://<XRAY_UUID>@<PUBLIC_HOST>:443?encryption=none&security=tls&sni=<PUBLIC_HOST>&type=ws&host=<PUBLIC_HOST>&path=%2Frelay#Falix-Relay
 ```
 
-It returns a Base64-encoded list containing three VLESS test configurations and one display-only status entry:
+Replace the placeholders with your private UUID and public hostname. The public port, TLS SNI, host header, and path must match your ingress configuration.
 
-| Entry | Transport | Server path | Notes |
-| --- | --- | --- | --- |
-| FreeNET-VLESS-WS | WebSocket | `/vless/<uuid>` | TLS at the public domain; ALPN `http/1.1`. |
-| FreeNET-XHTTP-Packet-Up | XHTTP `packet-up` | `/xhttp/<uuid>` | HTTP `GET`/`POST`; TLS at the public domain. |
-| FreeNET-XHTTP-Stream-Up | XHTTP `stream-up` | `/xhttp/<uuid>` | HTTP `GET`/`POST`; TLS at the public domain. |
-| FreeNET status | Display-only | Not an application endpoint | Shows process uptime and aggregate traffic; it is not a connection configuration. |
+## Updating Xray
 
-The subscription response also includes aggregate upload/download metadata. Counters and uptime are in memory: they reset on process restart and are not saved to disk.
+The Dockerfile pins an exact Xray release and hard-coded SHA-256 digests for the supported Linux amd64 and arm64 archives. When upgrading, update the version and the corresponding official release-asset digests together, then run the CI checks before deploying.
 
-## Run locally with Python
+## License
 
-Python 3.12 or newer is recommended.
-
-```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-SEC=change-this-secret VLESS_UUID=12345678-1234-5678-1234-567812345678 PORT=8000 python main.py
-```
-
-Open `http://localhost:8000/sub/change-this-secret` to inspect the generated test configurations. For experiments through a public domain, configure TLS termination and set `RAILWAY_PUBLIC_DOMAIN` to the domain used for the startup URL.
-
-## Docker
-
-The container is stateless and does not need a volume:
-
-```bash
-docker build -t freenet .
-docker run --rm -p 8000:8000 -e PORT=8000 -e SEC=change-this-secret freenet
-```
-
-## Project structure
-
-```text
-FreeNET/
-├── main.py          # FastAPI app, test subscription, UUID checks, and routes
-├── core.py          # TCP data relay, in-memory counters, and uptime
-├── health.py        # VLESS WebSocket and XHTTP request handling
-├── Dockerfile
-├── railway.json
-├── requirements.txt
-├── README.md
-└── README-fa.md
-```
+Falix-Relay project files are released under the MHDLabs MIT License. Xray-core is a separate project and retains its own license.
