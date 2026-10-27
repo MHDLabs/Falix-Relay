@@ -68,6 +68,19 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Check anonymous pull access
+        if: github.ref == 'refs/heads/main'
+        shell: bash
+        run: |
+          docker logout ghcr.io || true
+          if docker pull "${IMAGE_NAME}:latest"; then
+            echo "Anonymous pull succeeded."
+            echo "- Anonymous pull access: passed" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::warning::Image was pushed, but anonymous pull failed. Open the package settings for ghcr.io/mhdlabs/falix-relay and change visibility to Public."
+            echo "- Anonymous pull access: **needs Public package visibility**" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       - name: Summary
         run: |
           {
