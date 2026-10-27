@@ -82,3 +82,25 @@ The Dockerfile pins an exact Xray release and hard-coded SHA-256 digests for the
 ## License
 
 Falix-Relay project files are released under the MHDLabs MIT License. Xray-core is a separate project and retains its own license.
+
+
+## Pull the published image
+
+The GitHub Actions workflow publishes a multi-platform image to GHCR on pushes to `main` and on `v*` tags.
+
+```sh
+docker pull ghcr.io/mhdlabs/falix-relay:latest
+```
+
+Available tags include `latest`, a short commit tag (`sha-...`), branch tags, and Git tags such as `v1.0.0`. Public pulls without authentication work once the package visibility is set to **Public** in GitHub Packages.
+
+Run it with your own UUID and publish the port only behind a TLS/WebSocket ingress:
+
+```sh
+docker run --rm \
+  -e XRAY_UUID="$(cat /path/to/private-uuid.txt)" \
+  -e PORT=8080 \
+  -e WS_PATH=/relay \
+  -p 127.0.0.1:8080:8080/tcp \
+  ghcr.io/mhdlabs/falix-relay:latest
+```
