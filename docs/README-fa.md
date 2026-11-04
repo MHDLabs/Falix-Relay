@@ -2,7 +2,6 @@
 
 [🇬🇧 English guide](README.md) · [README فارسی پروژه](../README-fa.md) · [مخزن GitHub](https://github.com/MHDLabs/Falix-Relay)
 
-<div dir="rtl" align="right">
 
 Falix-Relay باینری رسمی Xray-core را به‌صورت یک سرویس مینیمال VLESS + WebSocket اجرا می‌کند. این راهنما متغیرهای محیطی، تنظیم شبکه در Falix، قالب لینک کلاینت و اجرای عمومی Docker را توضیح می‌دهد.
 
@@ -55,13 +54,11 @@ Falix پورت اختصاص‌یافته را از طریق متغیر `SERVER_P
 
 برای ساخت UUID در Linux:
 
-</div>
 
 ```sh
 cat /proc/sys/kernel/random/uuid
 ```
 
-<div dir="rtl" align="right">
 
 UUID را محرمانه نگه دار و آن را در Issue عمومی، تصویر صفحه یا مخزن عمومی قرار نده.
 
@@ -69,13 +66,11 @@ UUID را محرمانه نگه دار و آن را در Issue عمومی، تص
 
 از پنل Falix سرور را Start یا Restart کن و خروجی بخش Console را بررسی کن. پیام شروع سرویس باید شبیه نمونهٔ زیر باشد:
 
-</div>
 
 ```text
-Falix-Relay: starting official Xray-core on TCP port 42669 (WebSocket path /relay)
+Falix-Relay: starting official Xray-core on TCP port 12345 (WebSocket path /relay)
 ```
 
-<div dir="rtl" align="right">
 
 عدد پورت در این مثال صرفاً نمونه است؛ از پورتی استفاده کن که برای سرور خودت اختصاص داده شده است.
 
@@ -97,13 +92,11 @@ Falix چند روش برای دسترسی به سرور ارائه می‌کند
 
 از آدرس و پورت بخش **Network → Ports** استفاده کن:
 
-</div>
 
 ```text
 vless://<XRAY_UUID>@<FALIX_ADDRESS>:<FALIX_PORT>?encryption=none&security=none&type=ws&host=<FALIX_ADDRESS>&path=%2Frelay#Falix-Relay
 ```
 
-<div dir="rtl" align="right">
 
 این روش TLS ندارد. کلاینت باید VLESS روی WebSocket معمولی را پشتیبانی کند.
 
@@ -111,13 +104,11 @@ vless://<XRAY_UUID>@<FALIX_ADDRESS>:<FALIX_PORT>?encryption=none&security=none&t
 
 اگر Reverse Proxy را ساخته‌ای و وضعیت TLS آن فعال است، از دامنهٔ پروکسی و پورت HTTPS استفاده کن:
 
-</div>
 
 ```text
 vless://<XRAY_UUID>@<FALIX_DOMAIN>:443?encryption=none&security=tls&sni=<FALIX_DOMAIN>&type=ws&host=<FALIX_DOMAIN>&path=%2Frelay#Falix-Relay
 ```
 
-<div dir="rtl" align="right">
 
 تمام جای‌نگهدارها را با مقادیر واقعی خودت جایگزین کن. Reverse Proxy باید درخواست‌های WebSocket را به همان پورت داخلی تنظیم‌شده در `PORT` منتقل کند و مسیر `/relay` را تغییر ندهد.
 
@@ -140,7 +131,6 @@ vless://<XRAY_UUID>@<FALIX_DOMAIN>:443?encryption=none&security=tls&sni=<FALIX_D
 
 ۱. مخزن را دریافت و فایل محیطی را بساز:
 
-</div>
 
 ```sh
 git clone https://github.com/MHDLabs/Falix-Relay.git
@@ -148,43 +138,36 @@ cd Falix-Relay
 cp .env.example .env
 ```
 
-<div dir="rtl" align="right">
 
 ۲. یک UUID بساز و مقدار نمونهٔ `XRAY_UUID` را در فایل `.env` جایگزین کن. با UUID نمونه سرویس واقعی را اجرا نکن.
 
 ۳. ایمیج را بساز و تنظیمات را بررسی کن:
 
-</div>
 
 ```sh
 docker compose build
 docker compose run --rm falix-relay check
 ```
 
-<div dir="rtl" align="right">
 
 ۴. سرویس را اجرا و لاگ‌ها را مشاهده کن:
 
-</div>
 
 ```sh
 docker compose up -d
 docker compose logs -f falix-relay
 ```
 
-<div dir="rtl" align="right">
 
 فایل Compose ارائه‌شده پورت را فقط روی `127.0.0.1` منتشر می‌کند. روی همان میزبان یک Reverse Proxy دارای TLS تنظیم کن تا ترافیک WebSocket را به همین پورت محلی بفرستد. نگاشت پورت را بدون آگاهی از پیامدهای انتشار WebSocket بدون TLS روی رابط عمومی تغییر نده.
 
 برای دریافت مستقیم ایمیج آماده:
 
-</div>
 
 ```sh
 docker pull ghcr.io/mhdlabs/falix-relay:latest
 ```
 
-<div dir="rtl" align="right">
 
 ایمیج برای Linux با معماری‌های `amd64` و `arm64` ساخته می‌شود. دریافت بدون ورود به GHCR مستلزم Public بودن Package است.
 
@@ -206,38 +189,31 @@ docker pull ghcr.io/mhdlabs/falix-relay:latest
 
 برای استقرار مبتنی بر GHCR، ایمیج جدید را دریافت و سرور را با همان متغیرهای محیطی Restart کن:
 
-</div>
 
 ```sh
 docker pull ghcr.io/mhdlabs/falix-relay:latest
 ```
 
-<div dir="rtl" align="right">
 
 برای Docker Compose:
 
-</div>
 
 ```sh
 docker compose pull
 docker compose up -d
 ```
 
-<div dir="rtl" align="right">
 
 برای توقف و حذف کانتینر Compose:
 
-</div>
 
 ```sh
 docker compose down
 ```
 
-<div dir="rtl" align="right">
 
 Falix-Relay دادهٔ پایدار داخل کانتینر نگهداری نمی‌کند. پیش از جایگزینی یا حذف سرویس، نسخهٔ خصوصی UUID را در محل امن نگه دار.
 
 ---
 
 **مستندات بیشتر:** [README پروژه](../README.md) · [راهنمای فارسی](README-fa.md) · [کد منبع](https://github.com/MHDLabs/Falix-Relay)
-</div>
