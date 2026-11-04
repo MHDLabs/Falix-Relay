@@ -4,7 +4,6 @@
 
 [🇬🇧 English](README.md) · [راهنمای راه‌اندازی](docs/README-fa.md)
 
-<div dir="rtl" align="right">
 
 Falix-Relay یک رلهٔ سبک و بدون پنل برای **VLESS + WebSocket** است که از هستهٔ رسمی [Xray-core](https://github.com/XTLS/Xray-core) استفاده می‌کند. هدف پروژه، اجرای ساده روی Falix یا هر میزبان سازگار با کانتینر است.
 
@@ -42,13 +41,11 @@ Falix برای هر سرور یک پورت عمومی اختصاص می‌دهد
 
 برای ساخت UUID خصوصی در Linux:
 
-</div>
 
 ```sh
 cat /proc/sys/kernel/random/uuid
 ```
 
-<div dir="rtl" align="right">
 
 ## 📚 مستندات
 
@@ -61,13 +58,11 @@ cat /proc/sys/kernel/random/uuid
 
 GitHub Actions ایمیج چندمعماری برای Linux **amd64** و **arm64** می‌سازد و در GHCR منتشر می‌کند:
 
-</div>
 
 ```sh
 docker pull ghcr.io/mhdlabs/falix-relay:latest
 ```
 
-<div dir="rtl" align="right">
 
 برای دریافت بدون ورود، Package باید در GitHub Packages روی حالت Public باشد.
 
@@ -86,4 +81,3 @@ docker pull ghcr.io/mhdlabs/falix-relay:latest
 ❤️ ساخته‌شده با عشق در MHDLabs
 
 > Keep it simple :)
-</div>
