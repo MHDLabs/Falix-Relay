@@ -52,6 +52,8 @@ esac
 config_dir="$(mktemp -d /tmp/falix-relay.XXXXXX)"
 config_file="$config_dir/config.json"
 
+# Invoked indirectly by the EXIT trap.
+# shellcheck disable=SC2317
 cleanup() {
   rm -rf "$config_dir"
 }
@@ -75,6 +77,8 @@ printf 'Falix-Relay: starting official Xray-core on TCP port %s (WebSocket path 
 /usr/local/bin/xray run -config "$config_file" &
 xray_pid=$!
 
+# Invoked indirectly by the HUP, INT and TERM traps.
+# shellcheck disable=SC2317
 forward_signal() {
   kill -"$1" "$xray_pid" 2>/dev/null || true
 }
