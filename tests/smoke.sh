@@ -84,6 +84,7 @@ expect_rejected "privileged fallback port" -e "XRAY_UUID=$UUID" -e PORT=80
 expect_rejected "privileged Falix port" -e "XRAY_UUID=$UUID" -e SERVER_PORT=80 -e PORT=18443
 expect_rejected "invalid WebSocket path" -e "XRAY_UUID=$UUID" -e 'WS_PATH=/bad?path'
 expect_rejected "path traversal" -e "XRAY_UUID=$UUID" -e 'WS_PATH=/../relay'
+expect_rejected "repeated WebSocket slashes" -e "XRAY_UUID=$UUID" -e 'WS_PATH=/relay//extra'
 
 docker run --rm \
   -e "XRAY_UUID=$UUID" \
@@ -100,9 +101,9 @@ start_and_expect "${PREFIX}-port-fallback" 18444 \
   -e PORT=18444 \
   -e WS_PATH=/port-fallback
 
-start_and_expect "${PREFIX}-empty-server-port" 18445 \\
-  -e PORT=18445 \\
-  -e SERVER_PORT= \\
+start_and_expect "${PREFIX}-empty-server-port" 18445 \
+  -e PORT=18445 \
+  -e SERVER_PORT= \
   -e WS_PATH=/empty-server-port
 
 stop_and_expect "${PREFIX}-server-port"

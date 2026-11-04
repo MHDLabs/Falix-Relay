@@ -58,7 +58,7 @@ if ! printf '%s' "$WS_PATH" | grep -Eq '^/[A-Za-z0-9._~/-]+$'; then
 fi
 
 case "$WS_PATH" in
-  *..*|//*)
+  *..*|*//*)
     fail "WS_PATH must not contain '..' or repeated slashes"
     ;;
 esac
