@@ -67,7 +67,7 @@ ghcr.io/mhdlabs/falix-relay:latest
   <li><code dir="ltr">WS_PATH</code>: مسیر WebSocket. پیش‌فرض <code dir="ltr">/relay</code></li>
 </ul>
 
-<p>برای ساخت UUID در Linux از دستور زیر استفاده کن:</p>
+<p>UUID نمونهٔ داخل فایل .env.example فقط برای نمایش است و برنامه آن را رد می‌کند. UUID خصوصی خودت را جایگزین کن. برای ساخت UUID در Linux از دستور زیر استفاده کن:</p>
 
 </div>
 

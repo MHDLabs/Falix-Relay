@@ -2,7 +2,7 @@
 set -eu
 
 IMAGE="${1:-falix-relay:test}"
-UUID="00000000-0000-4000-8000-000000000001"
+UUID="11111111-1111-4111-8111-111111111111"
 PREFIX="falix-relay-smoke-$$"
 
 cleanup() {
@@ -65,6 +65,7 @@ docker run --rm \
   "$IMAGE" check
 
 expect_rejected "invalid UUID" -e XRAY_UUID=invalid
+expect_rejected "public example UUID" -e XRAY_UUID=00000000-0000-4000-8000-000000000001
 expect_rejected "privileged port" -e "XRAY_UUID=$UUID" -e PORT=80
 expect_rejected "invalid WebSocket path" -e "XRAY_UUID=$UUID" -e 'WS_PATH=/bad?path'
 

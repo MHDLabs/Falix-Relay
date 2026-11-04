@@ -54,6 +54,8 @@ On other hosts, the application uses `PORT` when `SERVER_PORT` is not present. T
 | `PORT` | Fallback port on other hosts, defaults to `8080` |
 | `WS_PATH` | `/relay` |
 
+The sample UUID in `.env.example` is a placeholder and the container rejects it. Replace it with your own private UUID.
+
 Generate a UUID on Linux:
 
 ```sh
