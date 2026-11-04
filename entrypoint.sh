@@ -67,6 +67,7 @@ config_dir="$(mktemp -d /tmp/falix-relay.XXXXXX)"
 config_file="$config_dir/config.json"
 
 cleanup() {
+  # shellcheck disable=SC2317
   rm -rf "$config_dir"
 }
 trap cleanup EXIT
@@ -101,6 +102,7 @@ xray_pid=$!
 # Invoked indirectly by the HUP, INT and TERM traps.
 # shellcheck disable=SC2317
 forward_signal() {
+  # shellcheck disable=SC2317
   kill -s "$1" "$xray_pid" 2>/dev/null || true
 }
 trap 'forward_signal HUP' HUP

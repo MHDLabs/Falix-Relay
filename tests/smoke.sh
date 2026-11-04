@@ -100,7 +100,13 @@ start_and_expect "${PREFIX}-port-fallback" 18444 \
   -e PORT=18444 \
   -e WS_PATH=/port-fallback
 
+start_and_expect "${PREFIX}-empty-server-port" 18445 \\
+  -e PORT=18445 \\
+  -e SERVER_PORT= \\
+  -e WS_PATH=/empty-server-port
+
 stop_and_expect "${PREFIX}-server-port"
 stop_and_expect "${PREFIX}-port-fallback"
+stop_and_expect "${PREFIX}-empty-server-port"
 
 printf 'All Falix-Relay smoke tests passed.\n'
