@@ -1,116 +1,78 @@
 # 🛰️ Falix-Relay
 
-**Keep it simple:) — MHDLabs**
+**Keep it simple :) — MHDLabs**
 
-Falix-Relay is a tiny, headless relay built around the **official Xray-core**. It has no web panel, database, account system, quotas, traffic accounting, or secondary proxy engine.
+[🇮🇷 فارسی](README-fa.md) · [Setup guide](docs/README.md)
 
-## What v1 does
+Falix-Relay is a minimal, headless **VLESS + WebSocket** relay powered by the official [Xray-core](https://github.com/XTLS/Xray-core). It is designed for small deployments on Falix or another compatible container host.
 
-- Runs the official Xray binary, pinned to **v26.10.21** and verified against a SHA-256 digest during image build.
-- Serves one VLESS + WebSocket inbound using the UUID from `XRAY_UUID`.
-- Takes the listen port from `PORT` (default: `8080`) and the WebSocket path from `WS_PATH` (default: `/relay`).
-- Runs as a non-root user with a read-only root filesystem in the supplied Compose setup.
-- Provides `check` and `version` commands without adding a management API.
+No web panel. No user database. No quotas. No traffic accounting. Just one inbound and one UUID.
 
-## Important network requirement
+## ✨ What it includes
 
-This v1 configuration is for a platform or reverse proxy that **terminates public TLS and forwards HTTP/WebSocket traffic** to Falix-Relay. Xray listens for plain WebSocket inside the container; it does not terminate TLS in this configuration.
+- 🔐 One VLESS client, configured through `XRAY_UUID`
+- 🌐 WebSocket transport with a configurable `WS_PATH`
+- 🔌 Configurable TCP listen port through `PORT`
+- 📦 A small Docker image based on the official Xray binary
+- 🔒 Non-root runtime and checksum-verified Xray release assets
+- 🧰 `check` and `version` commands for basic inspection
 
-Do **not** expose the container's plain WebSocket port directly to an untrusted public network. Put it behind a TLS-enabled ingress/reverse proxy that supports WebSocket upgrades. This minimal configuration does not implement raw-TCP protocol sniffing, REALITY, or a generic multi-protocol router. Those require a different Xray configuration and a compatible network path.
+The container currently pins Xray-core **v26.10.21**. It does not include a panel, database, account system, quota manager, usage dashboard, or a second proxy engine.
 
-## Quick start with Docker Compose
+## 🚀 Falix deployment notes
 
-1. Copy the environment example:
+Falix assigns a public port to each server. Set the project's `PORT` environment variable to the exact port assigned in **Network → Ports**. The current entrypoint reads `PORT`; it does not automatically read Falix's `SERVER_PORT` variable.
 
-   ```sh
-   cp .env.example .env
-   ```
+The Xray inbound listens on `0.0.0.0`, and the default WebSocket path is `/relay`.
 
-2. Generate your own UUID and set it as `XRAY_UUID` in `.env`. Do not use the example UUID in a real deployment. Keep `.env` private; it is ignored by Git.
+You can connect through the raw Falix address and port using plain WebSocket, or place the service behind Falix's Reverse Proxy and use secure WebSocket (WSS). A Falix DNS subdomain alone does not add TLS.
 
-3. Build the image and validate the generated configuration:
+> [!WARNING]
+> **Falix Free servers must not be used to run VPN/proxy software or relay other people's traffic.** Falix's current Acceptable Use Policy explicitly restricts this. Do not deploy this project on a Free server. For any other plan, check the plan-specific terms before deploying.
 
-   ```sh
-   docker compose build
-   docker compose run --rm falix-relay check
-   ```
+## ⚙️ Configuration
 
-4. Start the relay:
-
-   ```sh
-   docker compose up -d
-   docker compose logs -f falix-relay
-   ```
-
-Compose binds the container port to **127.0.0.1** by default. Configure your TLS ingress/reverse proxy to forward WebSocket requests to that local address and port. The platform's public ingress must support WebSocket upgrades.
-
-For a host that injects `PORT`, set it to the internal listening port expected by that platform. This container runs as non-root and supports ports **1024–65535**.
-
-## Environment variables
-
-| Variable | Required | Default | Purpose |
+| Variable | Required | Default | Description |
 |---|---:|---|---|
-| `XRAY_UUID` | Yes for run/check | — | The sole VLESS client UUID. It is rendered into a temporary config at startup and is never printed by Falix-Relay. |
-| `PORT` | No | `8080` | Container TCP listen port; must be between 1024 and 65535. |
-| `WS_PATH` | No | `/relay` | WebSocket request path. Restricted to a conservative character set. |
+| `XRAY_UUID` | Yes | — | Private UUID for the single VLESS client |
+| `PORT` | No | `8080` | TCP listen port; must be between `1024` and `65535` |
+| `WS_PATH` | No | `/relay` | WebSocket path |
 
-No account management, database, quota, bandwidth tracking, web server, QR service, or sing-box dependency is included.
-
-## Validate and inspect
+Generate a private UUID and never publish it:
 
 ```sh
-docker compose run --rm falix-relay check
-docker compose run --rm falix-relay version
+cat /proc/sys/kernel/random/uuid
 ```
 
-The `check` command runs Xray's own configuration test. It does not test public DNS, TLS ingress, firewall rules, or end-to-end client connectivity.
+## 📚 Documentation
 
-## Client URI shape
+- [🇬🇧 Setup and deployment guide](docs/README.md)
+- [🇮🇷 راهنمای راه‌اندازی](docs/README-fa.md)
 
-For a TLS-enabled public hostname whose ingress forwards WebSocket traffic to Falix-Relay, a compatible VLESS client URI has this shape:
+The guides cover Falix port and domain configuration, client URI formats, Docker usage, and troubleshooting.
 
-```text
-vless://<XRAY_UUID>@<PUBLIC_HOST>:443?encryption=none&security=tls&sni=<PUBLIC_HOST>&type=ws&host=<PUBLIC_HOST>&path=%2Frelay#Falix-Relay
-```
+## 📦 Published image
 
-Replace the placeholders with your private UUID and public hostname. The public port, TLS SNI, host header, and path must match your ingress configuration.
-
-## Updating Xray
-
-The Dockerfile pins an exact Xray release and hard-coded SHA-256 digests for the supported Linux amd64 and arm64 archives. When upgrading, update the version and the corresponding official release-asset digests together, then run the CI checks before deploying.
-
-## License
-
-Falix-Relay project files are released under the MHDLabs MIT License. Xray-core is a separate project and retains its own license.
-
-
-## Pull the published image
-
-The GitHub Actions workflow publishes a multi-platform image to GHCR on pushes to `main` and on `v*` tags.
+The GitHub Actions workflow builds a multi-platform image for Linux **amd64** and **arm64** and publishes it to GHCR:
 
 ```sh
 docker pull ghcr.io/mhdlabs/falix-relay:latest
 ```
 
-Available tags include `latest`, a short commit tag (`sha-...`), branch tags, and Git tags such as `v1.0.0`. Public pulls without authentication work once the package visibility is set to **Public** in GitHub Packages.
+Anonymous pulls require the package visibility to be Public in GitHub Packages.
 
-Run it with your own UUID and publish the port only behind a TLS/WebSocket ingress:
+## 🔐 Network and security
 
-```sh
-docker run --rm \
-  -e XRAY_UUID="$(cat /path/to/private-uuid.txt)" \
-  -e PORT=8080 \
-  -e WS_PATH=/relay \
-  -p 127.0.0.1:8080:8080/tcp \
-  ghcr.io/mhdlabs/falix-relay:latest
-```
+Xray listens for plain WebSocket inside the container; TLS is not terminated by this Xray configuration. Use a TLS-enabled reverse proxy when you need WSS. Do not assume that a DNS name by itself provides encryption.
 
+The project does not persist application data inside the container. Keep your UUID somewhere private before replacing or removing a deployment.
 
-## 📚 Documentation
+## 📄 License
 
-The setup guide is available in both languages:
+The Falix-Relay project files are released under the MIT License. Xray-core is a separate project and retains its own license.
 
-- 🇬🇧 [English Docker setup guide](docs/README.md)
-- 🇮🇷 [راهنمای راه‌اندازی فارسی](docs/README-fa.md)
+---
 
-The guide includes UUID generation, image pull/run commands, configuration, client URI format, and troubleshooting.
+❤️ Made with love in MHDLabs
+
+> Keep it simple :)
