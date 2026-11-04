@@ -17,11 +17,20 @@ fail() {
   exit 1
 }
 
+run_hardened() {
+  docker run \
+    --read-only \
+    --tmpfs /tmp:rw,noexec,nosuid,size=1m \
+    --cap-drop ALL \
+    --security-opt no-new-privileges:true \
+    "$@"
+}
+
 expect_rejected() {
   description="$1"
   shift
 
-  if docker run --rm "$@" "$IMAGE" check >/dev/null 2>&1; then
+  if run_hardened --rm "$@" "$IMAGE" check >/dev/null 2>&1; then
     fail "invalid input was accepted: $description"
   fi
 }
@@ -31,7 +40,7 @@ start_and_expect() {
   expected_port="$2"
   shift 2
 
-  docker run -d --name "$name" \
+  run_hardened -d --name "$name" \
     -e "XRAY_UUID=$UUID" \
     "$@" \
     "$IMAGE" >/dev/null || fail "container did not start: $name"
@@ -43,7 +52,29 @@ start_and_expect() {
       if printf '%s' "$logs" | grep -Fq "$UUID"; then
         fail "container leaked the client UUID in its logs: $name"
       fi
-      printf 'Passed: %s listens on port %s\n' "$name" "$expected_port"
+      user="$(docker inspect --format '{{.Config.User}}' "$name")"
+      [ "$user" = "10001:10001" ] || fail "container does not use the expected non-root user: $name"
+
+      readonly_root="$(docker inspect --format '{{.HostConfig.ReadonlyRootfs}}' "$name")"
+      [ "$readonly_root" = "true" ] || fail "container root filesystem is writable: $name"
+
+      dropped_caps="$(docker inspect --format '{{.HostConfig.CapDrop}}' "$name")"
+      [ "$dropped_caps" = "[ALL]" ] || fail "container capabilities were not fully dropped: $name"
+
+      security_options="$(docker inspect --format '{{.HostConfig.SecurityOpt}}' "$name")"
+      case "$security_options" in
+        *no-new-privileges:true*) ;;
+        *) fail "no-new-privileges is not enabled: $name" ;;
+      esac
+
+      uid="$(docker exec "$name" id -u)"
+      [ "$uid" = "10001" ] || fail "Xray does not run as UID 10001: $name"
+
+      sleep 1
+      running="$(docker inspect --format '{{.State.Running}}' "$name")"
+      [ "$running" = "true" ] || fail "container exited after startup: $name"
+
+      printf 'Passed: %s, port %s, non-root, read-only, no capabilities\n' "$name" "$expected_port"
       return 0
     fi
 
@@ -74,7 +105,7 @@ stop_and_expect() {
   printf 'Passed: %s stopped without SIGKILL (exit %s)\n' "$name" "$exit_code"
 }
 
-version_output="$(docker run --rm "$IMAGE" version)"
+version_output="$(run_hardened --rm "$IMAGE" version)"
 printf '%s' "$version_output" | grep -Fq "26.10.31" || fail "unexpected Xray version: $version_output"
 
 expect_rejected "missing UUID"
@@ -86,7 +117,7 @@ expect_rejected "invalid WebSocket path" -e "XRAY_UUID=$UUID" -e 'WS_PATH=/bad?p
 expect_rejected "path traversal" -e "XRAY_UUID=$UUID" -e 'WS_PATH=/../relay'
 expect_rejected "repeated WebSocket slashes" -e "XRAY_UUID=$UUID" -e 'WS_PATH=/relay//extra'
 
-docker run --rm \
+run_hardened --rm \
   -e "XRAY_UUID=$UUID" \
   -e SERVER_PORT=18443 \
   -e PORT=8080 \
