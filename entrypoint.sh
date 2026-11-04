@@ -26,16 +26,17 @@ if ! printf '%s' "$XRAY_UUID" | grep -Eq '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-f
   fail "XRAY_UUID must be a UUID in 8-4-4-4-12 format"
 fi
 
-PORT="${PORT:-8080}"
+# Falix injects SERVER_PORT. Prefer it over the generic PORT fallback.
+PORT="${SERVER_PORT:-${PORT:-8080}}"
 case "$PORT" in
   ''|*[!0-9]*)
-    fail "PORT must be a decimal TCP port between 1024 and 65535"
+    fail "PORT or SERVER_PORT must be a decimal TCP port between 1024 and 65535"
     ;;
 esac
 while [ "${PORT#0}" != "$PORT" ]; do PORT="${PORT#0}"; done
 [ -n "$PORT" ] || PORT=0
 if [ "${#PORT}" -gt 5 ] || [ "$PORT" -lt 1024 ] || [ "$PORT" -gt 65535 ]; then
-  fail "PORT must be between 1024 and 65535 (the container runs as non-root)"
+  fail "PORT or SERVER_PORT must be between 1024 and 65535 (the container runs as non-root)"
 fi
 
 WS_PATH="${WS_PATH:-/relay}"
@@ -50,7 +51,15 @@ esac
 
 config_dir="$(mktemp -d /tmp/falix-relay.XXXXXX)"
 config_file="$config_dir/config.json"
-trap 'rm -rf "$config_dir"' EXIT HUP INT TERM
+
+cleanup() {
+  rm -rf "$config_dir"
+}
+trap cleanup EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
 sed -e "s|__XRAY_UUID__|$XRAY_UUID|g" -e "s|__XRAY_PORT__|$PORT|g" -e "s|__XRAY_WS_PATH__|$WS_PATH|g" /etc/falix-relay/config.template.json > "$config_file"
 if [ ! -s "$config_file" ]; then
   fail "failed to generate Xray configuration"
@@ -62,4 +71,26 @@ if [ "$mode" = "check" ]; then
 fi
 
 printf 'Falix-Relay: starting official Xray-core on TCP port %s (WebSocket path %s)\n' "$PORT" "$WS_PATH"
-exec /usr/local/bin/xray run -config "$config_file"
+
+/usr/local/bin/xray run -config "$config_file" &
+xray_pid=$!
+
+forward_signal() {
+  kill -"$1" "$xray_pid" 2>/dev/null || true
+}
+trap 'forward_signal HUP' HUP
+trap 'forward_signal INT' INT
+trap 'forward_signal TERM' TERM
+
+status=0
+while :; do
+  set +e
+  wait "$xray_pid"
+  status=$?
+  set -e
+  if ! kill -0 "$xray_pid" 2>/dev/null; then
+    break
+  fi
+done
+
+exit "$status"

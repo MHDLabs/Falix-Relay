@@ -26,7 +26,7 @@
 <h2>🧩 محدودهٔ پروژه</h2>
 
 <ul>
-  <li>هستهٔ پروژه، نسخهٔ رسمی Xray-core با نسخهٔ ثابت v26.10.21 است.</li>
+  <li>هستهٔ پروژه، نسخهٔ رسمی Xray-core با نسخهٔ ثابت v26.10.31 است. این نسخه MPTCP را به‌صورت پیش‌فرض غیرفعال می‌کند.</li>
   <li>در حال حاضر فقط VLESS + WebSocket فعال است.</li>
   <li>پروژه یک UUID و یک ورودی دارد.</li>
   <li>خروجی Xray از نوع direct است.</li>
@@ -54,16 +54,17 @@ ghcr.io/mhdlabs/falix-relay:latest
 
 <h3>۲. تنظیم پورت</h3>
 
-<p>از بخش Network → Ports پورت اختصاص‌یافته به سرورت را بردار. مقدار PORT باید دقیقاً با همان عدد برابر باشد.</p>
+<p>Falix متغیر SERVER_PORT را همراه با پورت اختصاص‌یافته در اختیار سرویس قرار می‌دهد. نسخهٔ فعلی Falix-Relay این متغیر را مستقیم می‌خواند و آن را به PORT ترجیح می‌دهد. نیازی به تنظیم دستی پورت در Falix نیست.</p>
 
-<p>نکته: Falix مقدار پورت را با متغیر SERVER_PORT در اختیار محیط اجرا می‌گذارد، اما نسخهٔ فعلی Falix-Relay فقط متغیر PORT را می‌خواند. بنابراین PORT را خودت با همان شماره تنظیم کن. برنامه هنوز SERVER_PORT را به‌صورت خودکار نمی‌خواند.</p>
+<p>در میزبان‌های دیگر، اگر SERVER_PORT وجود نداشته باشد، برنامه از PORT استفاده می‌کند. مقدار پیش‌فرض آن 8080 است.</p>
 
 <h3>۳. تنظیم متغیرهای محیطی</h3>
 
 <ul>
   <li><code dir="ltr">XRAY_UUID</code>: یک UUID خصوصی و تصادفی</li>
-  <li><code dir="ltr">PORT</code>: پورت اختصاص‌یافته در پنل Falix</li>
-  <li><code dir="ltr">WS_PATH</code>: مسیر WebSocket. مقدار پیش‌فرض <code dir="ltr">/relay</code> است.</li>
+  <li><code dir="ltr">SERVER_PORT</code>: پورت خودکار Falix که برنامه مستقیم می‌خواند</li>
+  <li><code dir="ltr">PORT</code>: پورت جایگزین برای میزبان‌های دیگر. پیش‌فرض <code dir="ltr">8080</code></li>
+  <li><code dir="ltr">WS_PATH</code>: مسیر WebSocket. پیش‌فرض <code dir="ltr">/relay</code></li>
 </ul>
 
 <p>برای ساخت UUID در Linux از دستور زیر استفاده کن:</p>
@@ -114,7 +115,8 @@ vless://<XRAY_UUID>@<FALIX_DOMAIN>:443?encryption=none&security=tls&sni=<FALIX_D
 
 <ul>
   <li><code dir="ltr">XRAY_UUID</code>، ضروری برای اجرا و بررسی تنظیمات. UUID تنها کلاینت VLESS است.</li>
-  <li><code dir="ltr">PORT</code>، پیش‌فرض 8080. پورت TCP داخلی سرویس است و باید بین 1024 تا 65535 باشد.</li>
+  <li><code dir="ltr">SERVER_PORT</code>، پورت خودکار Falix است و نسبت به PORT اولویت دارد.</li>
+  <li><code dir="ltr">PORT</code>، پیش‌فرض 8080. در نبود SERVER_PORT استفاده می‌شود و باید بین 1024 تا 65535 باشد.</li>
   <li><code dir="ltr">WS_PATH</code>، پیش‌فرض /relay. مسیر ورودی WebSocket است.</li>
 </ul>
 
@@ -174,7 +176,7 @@ docker pull ghcr.io/mhdlabs/falix-relay:latest
 
 <ul>
   <li>سرویس اجرا نمی‌شود: مقدار و قالب XRAY_UUID و بازهٔ PORT را بررسی کن.</li>
-  <li>اتصال رد می‌شود: مطمئن شو PORT با پورت اختصاص‌یافته در Falix برابر است.</li>
+  <li>اتصال رد می‌شود: مطمئن شو SERVER_PORT را پنل Falix به سرویس داده است یا PORT با پورت اختصاص‌یافته برابر است.</li>
   <li>اتصال مستقیم برقرار نمی‌شود: آدرس، پورت، UUID و مسیر /relay را بررسی کن. برای اتصال مستقیم TLS را خاموش نگه دار.</li>
   <li>اتصال امن برقرار نمی‌شود: وضعیت TLS در Reverse Proxy و پورت Backend را بررسی کن.</li>
   <li>خطای تنظیمات داری: فرمان check را اجرا کن و لاگ Xray را ببین.</li>

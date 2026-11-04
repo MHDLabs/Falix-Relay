@@ -4,5 +4,5 @@
 .env.*
 !.env.example
 README.md
-README-fa.md
+README-En.md
 LICENSE

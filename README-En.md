@@ -17,7 +17,7 @@ Falix-Relay keeps a small deployment simple. Set a few environment variables and
 
 ## 🧩 Project scope
 
-- Uses the official Xray-core release, pinned to v26.10.21.
+- Uses the official Xray-core release, pinned to v26.10.31. This release disables MPTCP by default.
 - Supports VLESS over WebSocket.
 - Runs one inbound with one client UUID.
 - Uses a direct outbound.
@@ -41,16 +41,17 @@ ghcr.io/mhdlabs/falix-relay:latest
 
 ### 2. Set the listening port
 
-Open Network → Ports in the Falix panel and note the assigned port. Set the project's `PORT` variable to the same number.
+Falix injects the assigned port through `SERVER_PORT`. The current Falix-Relay release reads this variable directly and gives it priority over `PORT`. You do not need to set the port manually in Falix.
 
-Falix provides the assigned port through `SERVER_PORT`, while the current Falix-Relay release reads `PORT`. Set `PORT` manually to the assigned port. This release does not map `SERVER_PORT` automatically.
+On other hosts, the application uses `PORT` when `SERVER_PORT` is not present. The default is `8080`.
 
 ### 3. Set environment variables
 
 | Variable | Value |
 |---|---|
 | `XRAY_UUID` | A new private UUID |
-| `PORT` | The port assigned in the Falix panel |
+| `SERVER_PORT` | Injected by Falix with the assigned port |
+| `PORT` | Fallback port on other hosts, defaults to `8080` |
 | `WS_PATH` | `/relay` |
 
 Generate a UUID on Linux:
@@ -94,7 +95,8 @@ Read Falix's [Domains and HTTPS guide](https://client.falixnodes.net/guides/web-
 | Variable | Default | Description |
 |---|---|---|
 | `XRAY_UUID` | None | Required private UUID for the only VLESS client |
-| `PORT` | `8080` | TCP listening port. Valid range: 1024 to 65535 |
+| `SERVER_PORT` | Injected by Falix | Takes priority when present |
+| `PORT` | `8080` | Fallback TCP port. Valid range: 1024 to 65535 |
 | `WS_PATH` | `/relay` | WebSocket request path |
 
 ## 🐳 Run locally with Docker Compose
@@ -138,7 +140,7 @@ Anonymous pulls require Public visibility for the package in GitHub Packages.
 | Problem | Check |
 |---|---|
 | Service does not start | Check the UUID format and the PORT range |
-| Connection refused | Confirm PORT matches the port assigned by Falix |
+| Connection refused | Confirm SERVER_PORT is present, or PORT matches the Falix allocation |
 | Direct connection fails | Check the address, port, UUID, and `/relay` path. Keep TLS disabled for a direct connection |
 | Secure connection fails | Check the Reverse Proxy TLS status and backend port |
 | Configuration error | Run the `check` command and inspect the Xray logs |

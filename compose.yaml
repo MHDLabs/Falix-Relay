@@ -6,10 +6,11 @@ services:
     env_file:
       - .env
     environment:
-      PORT: ${PORT:-8080}
+      SERVER_PORT: ${SERVER_PORT:-}
+      PORT: ${SERVER_PORT:-${PORT:-8080}}
       WS_PATH: ${WS_PATH:-/relay}
     ports:
-      - "127.0.0.1:${PORT:-8080}:${PORT:-8080}/tcp"
+      - "127.0.0.1:${SERVER_PORT:-${PORT:-8080}}:${SERVER_PORT:-${PORT:-8080}}/tcp"
     read_only: true
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=1m
