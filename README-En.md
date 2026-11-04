@@ -135,7 +135,7 @@ GitHub Actions builds a multi-platform image for Linux AMD64 and ARM64 on pushes
 docker pull ghcr.io/mhdlabs/falix-relay:latest
 ```
 
-Anonymous pulls require Public visibility for the package in GitHub Packages.
+Anonymous pulls require Public visibility for the package in GitHub Packages. Each published image also includes an SBOM and build provenance.
 
 ## 🛠️ Troubleshooting
 

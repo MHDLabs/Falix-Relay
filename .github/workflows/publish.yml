@@ -87,6 +87,8 @@ jobs:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
+          sbom: true
+          provenance: mode=max
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
@@ -114,6 +116,8 @@ jobs:
             echo "- Architectures: `linux/amd64`, `linux/arm64`"
             echo "- Xray-core: `v26.10.31`"
             echo "- Alpine: `3.24.3`"
+            echo "- SBOM: attached"
+            echo "- Build provenance: attached (mode=max)"
             echo "- Tags:"
             echo "```text"
             echo "${{ steps.meta.outputs.tags }}"

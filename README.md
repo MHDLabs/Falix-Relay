@@ -170,7 +170,7 @@ docker pull ghcr.io/mhdlabs/falix-relay:latest
 
 <div dir="rtl" align="right">
 
-<p>برای دریافت بدون ورود، دسترسی Package در GitHub باید روی Public باشد.</p>
+<p>برای دریافت بدون ورود، دسترسی Package در GitHub باید روی Public باشد. هر ایمیج منتشرشده همراه SBOM و اطلاعات منشأ ساخت (Build Provenance) خواهد بود.</p>
 
 <h2>🛠️ عیب‌یابی</h2>
 
