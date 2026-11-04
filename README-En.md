@@ -149,6 +149,10 @@ Anonymous pulls require Public visibility for the package in GitHub Packages.
 
 The `check` command validates the Xray configuration only. It does not test public DNS, port allocation, TLS, firewall rules, or client connectivity.
 
+## 🧭 WebSocket status
+
+The current configuration uses WebSocket. Xray might print a deprecation notice for this transport and recommend XHTTP. The notice does not mean the service is disabled. Before changing the transport, test XHTTP against the hosting platform's network path and reverse proxy.
+
 ## 🔐 Security
 
 - Keep your UUID private.
