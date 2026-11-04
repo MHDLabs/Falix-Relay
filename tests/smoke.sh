@@ -6,7 +6,7 @@ UUID="11111111-1111-4111-8111-111111111111"
 PREFIX="falix-relay-smoke-$$"
 
 cleanup() {
-  docker rm -f "${PREFIX}-server-port" "${PREFIX}-port-fallback" >/dev/null 2>&1 || true
+  docker rm -f "${PREFIX}-server-port" "${PREFIX}-port-fallback" "${PREFIX}-empty-server-port" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 trap 'exit 130' INT
@@ -74,7 +74,8 @@ stop_and_expect() {
   printf 'Passed: %s stopped without SIGKILL (exit %s)\n' "$name" "$exit_code"
 }
 
-docker run --rm "$IMAGE" version >/dev/null
+version_output="$(docker run --rm "$IMAGE" version)"
+printf '%s' "$version_output" | grep -Fq "26.10.31" || fail "unexpected Xray version: $version_output"
 
 expect_rejected "missing UUID"
 expect_rejected "invalid UUID" -e XRAY_UUID=invalid
