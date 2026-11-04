@@ -1,179 +1,243 @@
 # 🛰️ راهنمای راه‌اندازی Falix-Relay
 
-**Keep it simple:) — MHDLabs**
+[🇬🇧 English guide](README.md) · [README فارسی پروژه](../README-fa.md) · [مخزن GitHub](https://github.com/MHDLabs/Falix-Relay)
 
-[🇬🇧 English guide](README.md) · [مخزن پروژه](https://github.com/MHDLabs/Falix-Relay)
+<div dir="rtl" align="right">
 
-Falix-Relay یک رلهٔ سبک **VLESS + WebSocket** است که از هستهٔ رسمی Xray استفاده می‌کند. این راهنما مسیر اجرای ایمیج آمادهٔ Docker را توضیح می‌دهد؛ نیازی به ویزارد، پنل مدیریتی یا سرویس جانبی پروژه نیست.
+Falix-Relay باینری رسمی Xray-core را به‌صورت یک سرویس مینیمال VLESS + WebSocket اجرا می‌کند. این راهنما متغیرهای محیطی، تنظیم شبکه در Falix، قالب لینک کلاینت و اجرای عمومی Docker را توضیح می‌دهد.
 
-> [!IMPORTANT]
-> در نسخهٔ فعلی، Xray خودش TLS را خاتمه نمی‌دهد. اتصال عمومی باید از یک ورودی TLSدار یا ریورس‌پروکسی سازگار با WebSocket عبور کند. پورت خام WebSocket را مستقیماً روی اینترنت عمومی قرار نده.
+> [!WARNING]
+> **سرورهای رایگان Falix مجاز به اجرای نرم‌افزار VPN/Proxy یا انتقال ترافیک دیگران نیستند.** این محدودیت در [سیاست استفادهٔ قابل قبول Falix](https://falixnodes.net/acceptable-use-policy) آمده است. این پروژه را روی سرور Free اجرا نکن. پیش از استفاده از پلن‌های دیگر نیز قوانین همان پلن را بررسی کن.
 
 ## 🧭 فهرست
 
 - [پیش‌نیازها](#-پیشنیازها)
-- [۱. ساخت UUID خصوصی](#۱-ساخت-uuid-خصوصی)
-- [۲. دریافت ایمیج](#۲-دریافت-ایمیج)
-- [۳. اجرای کانتینر](#۳-اجرای-کانتینر)
-- [۴. بررسی وضعیت](#۴-بررسی-وضعیت)
-- [تنظیمات](#️-تنظیمات)
-- [ساخت لینک کلاینت](#-ساخت-لینک-کلاینت)
+- [راه‌اندازی روی Falix](#-راهاندازی-روی-falix)
+- [لینک‌های اتصال](#-لینکهای-اتصال)
+- [متغیرهای محیطی](#-متغیرهای-محیطی)
+- [اجرا با Docker Compose](#-اجرا-با-docker-compose)
 - [عیب‌یابی](#-عیبیابی)
 - [به‌روزرسانی و حذف](#-بهروزرسانی-و-حذف)
 
 ## 📦 پیش‌نیازها
 
-- Docker Engine و دسترسی به رجیستری GitHub Container Registry (GHCR)
-- یک دامنه و ورودی TLS/ریورس‌پروکسی که WebSocket را پشتیبانی کند
-- امکان اتصال ورودی عمومی به پورت داخلی سرویس
+- پلن و نوع سروری در Falix که قوانین و محیط اجرایی آن اجازهٔ این کاربرد را بدهد
+- محیط اجرایی سازگار با ایمیج منتشرشدهٔ پروژه: `ghcr.io/mhdlabs/falix-relay:latest`
+- یک پورت عمومی اختصاص‌یافته
+- یک UUID خصوصی
+- برای WSS، یک Reverse Proxy در Falix که به پورت داخلی سرویس اشاره کند
 
-ایمیج آماده: **`ghcr.io/mhdlabs/falix-relay:latest`**  
-معماری‌های منتشرشده: **Linux amd64** و **Linux arm64**.
+**نکتهٔ مهم دربارهٔ محیط اجرا:** گزینهٔ انتخاب Docker Image سفارشی در Falix فقط برای بعضی انواع سرور که چنین گزینه‌ای دارند در دسترس است. انتشار ایمیج در GHCR به این معنی نیست که همهٔ انواع سرور Falix می‌توانند مستقیماً آن را اجرا کنند. راهنمای [تنظیمات Startup در Falix](https://kb.falixnodes.net/falix/dashboard/setup/startup-configuration) را ببین.
 
-<!-- Screenshot 01 — بعداً تصویر صفحهٔ دریافت ایمیج یا ترمینال اینجا قرار بگیرد. -->
+## ☁️ راه‌اندازی روی Falix
 
-## 1️⃣ ساخت UUID خصوصی
+### ۱. بررسی محیط اجرا
 
-برای هر استقرار، یک UUID تصادفی و خصوصی بساز. روی Linux:
+از نوع سروری استفاده کن که امکان اجرای ایمیج کانتینری Falix-Relay را داشته باشد. اگر نوع سرورت گزینهٔ اجرای Docker Image سازگار را ارائه نمی‌کند، نمی‌توانی این ایمیج را مستقیماً در همان سرور انتخاب کنی.
+
+### ۲. اختصاص پورت عمومی
+
+در پنل Falix وارد بخش **Network → Ports** شو و پورت عمومی اختصاص‌یافته به سرور را یادداشت کن. Falix شمارهٔ پورت را تعیین می‌کند؛ فرض نکن مقدار آن حتماً `8080` است.
+
+برنامه روی `0.0.0.0` گوش می‌دهد؛ این آدرس برای دسترسی عمومی از طریق شبکهٔ Falix ضروری است. جزئیات بیشتر در [راهنمای شبکهٔ Falix](https://client.falixnodes.net/guides/panel/network-page-deep) آمده است.
+
+### ۳. تنظیم متغیرهای محیطی
+
+در بخش Environment سرور، این مقادیر را تنظیم کن:
+
+| متغیر | مقدار |
+|---|---|
+| `XRAY_UUID` | یک UUID خصوصی و جدید |
+| `PORT` | دقیقاً همان شمارهٔ پورت نمایش‌داده‌شده در **Network → Ports** |
+| `WS_PATH` | `/relay` |
+
+Falix پورت اختصاص‌یافته را از طریق متغیر `SERVER_PORT` در اختیار سرور قرار می‌دهد؛ اما نقطهٔ ورود فعلی Falix-Relay متغیر `PORT` را می‌خواند. بنابراین مقدار عددی پورت Falix را در `PORT` هم وارد کن. ایمیج فعلی به‌صورت خودکار `SERVER_PORT` را به `PORT` تبدیل نمی‌کند.
+
+برای ساخت UUID در Linux:
+
+</div>
 
 ```sh
 cat /proc/sys/kernel/random/uuid
 ```
 
-یا اگر `uuidgen` نصب است:
+<div dir="rtl" align="right">
+
+UUID را محرمانه نگه دار و آن را در Issue عمومی، تصویر صفحه یا مخزن عمومی قرار نده.
+
+### ۴. اجرای سرویس
+
+از پنل Falix سرور را Start یا Restart کن و خروجی بخش Console را بررسی کن. پیام شروع سرویس باید شبیه نمونهٔ زیر باشد:
+
+</div>
+
+```text
+Falix-Relay: starting official Xray-core on TCP port 42669 (WebSocket path /relay)
+```
+
+<div dir="rtl" align="right">
+
+عدد پورت در این مثال صرفاً نمونه است؛ از پورتی استفاده کن که برای سرور خودت اختصاص داده شده است.
+
+### ۵. انتخاب مسیر اتصال
+
+Falix چند روش برای دسترسی به سرور ارائه می‌کند:
+
+- **Ports:** آدرس و پورت عمومی مستقیم؛ بدون TLS.
+- **Falix subdomain:** نام دامنه‌ای که به سرور اشاره می‌کند، اما همچنان به پورت اختصاص‌یافته نیاز دارد و به‌تنهایی TLS ندارد.
+- **Reverse Proxy:** دامنه با TLS خودکار؛ برای WebSocket امن (WSS) از این روش استفاده کن.
+
+راهنماهای رسمی [Domains and HTTPS](https://client.falixnodes.net/guides/web-apps/domains-and-https) و [WebSockets](https://client.falixnodes.net/guides/web-apps/websockets) جزئیات بیشتری دارند.
+
+## 🔗 لینک‌های اتصال
+
+ورودی Xray از WebSocket بدون TLS استفاده می‌کند. قالب لینک را مطابق روش انتشار سرویس انتخاب کن.
+
+### اتصال مستقیم با آدرس و پورت Falix — WebSocket معمولی
+
+از آدرس و پورت بخش **Network → Ports** استفاده کن:
+
+</div>
+
+```text
+vless://<XRAY_UUID>@<FALIX_ADDRESS>:<FALIX_PORT>?encryption=none&security=none&type=ws&host=<FALIX_ADDRESS>&path=%2Frelay#Falix-Relay
+```
+
+<div dir="rtl" align="right">
+
+این روش TLS ندارد. کلاینت باید VLESS روی WebSocket معمولی را پشتیبانی کند.
+
+### اتصال از طریق Falix Reverse Proxy — WebSocket امن
+
+اگر Reverse Proxy را ساخته‌ای و وضعیت TLS آن فعال است، از دامنهٔ پروکسی و پورت HTTPS استفاده کن:
+
+</div>
+
+```text
+vless://<XRAY_UUID>@<FALIX_DOMAIN>:443?encryption=none&security=tls&sni=<FALIX_DOMAIN>&type=ws&host=<FALIX_DOMAIN>&path=%2Frelay#Falix-Relay
+```
+
+<div dir="rtl" align="right">
+
+تمام جای‌نگهدارها را با مقادیر واقعی خودت جایگزین کن. Reverse Proxy باید درخواست‌های WebSocket را به همان پورت داخلی تنظیم‌شده در `PORT` منتقل کند و مسیر `/relay` را تغییر ندهد.
+
+> [!NOTE]
+> ساب‌دامین بخش DNS/Subdomains با دامنهٔ Reverse Proxy یکی نیست. ساب‌دامین DNS به‌تنهایی TLS ندارد. برای پورت خام از `security=none` استفاده کن؛ برای `security=tls` ابتدا Reverse Proxy را با TLS فعال تنظیم کن.
+
+## ⚙️ متغیرهای محیطی
+
+| متغیر | ضروری | پیش‌فرض | توضیح |
+|---|---:|---|---|
+| `XRAY_UUID` | برای `run` و `check` بله | — | UUID خصوصی تنها کلاینت VLESS |
+| `PORT` | خیر | `8080` | پورت TCP؛ بازهٔ معتبر `1024` تا `65535` |
+| `WS_PATH` | خیر | `/relay` | مسیر درخواست WebSocket |
+
+پیکربندی فعلی یک ورودی VLESS و یک خروجی مستقیم دارد. پنل وب، مدیریت حساب، دیتابیس، سهمیه، شمارندهٔ ترافیک، سرویس QR یا ذخیره‌سازی پایدار داخل کانتینر در پروژه وجود ندارد.
+
+## 🐳 اجرا با Docker Compose
+
+این بخش برای یک میزبان Docker است که کنترل کامل آن را داری و می‌توانی روی همان میزبان یک TLS Reverse Proxy اجرا کنی. این روش جایگزین مراحل تنظیم پنل و محیط اجرایی Falix نیست.
+
+۱. مخزن را دریافت و فایل محیطی را بساز:
+
+</div>
 
 ```sh
-uuidgen
+git clone https://github.com/MHDLabs/Falix-Relay.git
+cd Falix-Relay
+cp .env.example .env
 ```
 
-در PowerShell ویندوز:
+<div dir="rtl" align="right">
 
-```powershell
-[guid]::NewGuid().ToString()
+۲. یک UUID بساز و مقدار نمونهٔ `XRAY_UUID` را در فایل `.env` جایگزین کن. با UUID نمونه سرویس واقعی را اجرا نکن.
+
+۳. ایمیج را بساز و تنظیمات را بررسی کن:
+
+</div>
+
+```sh
+docker compose build
+docker compose run --rm falix-relay check
 ```
 
-UUID را در مخزن عمومی، اسکرین‌شات عمومی یا پیام عمومی قرار نده. در دستور زیر، UUID داخل یک متغیر محیطی نگه داشته می‌شود تا لازم نباشد مقدارش را مستقیماً در تاریخچهٔ دستور بنویسی.
+<div dir="rtl" align="right">
 
-## 2️⃣ دریافت ایمیج
+۴. سرویس را اجرا و لاگ‌ها را مشاهده کن:
+
+</div>
+
+```sh
+docker compose up -d
+docker compose logs -f falix-relay
+```
+
+<div dir="rtl" align="right">
+
+فایل Compose ارائه‌شده پورت را فقط روی `127.0.0.1` منتشر می‌کند. روی همان میزبان یک Reverse Proxy دارای TLS تنظیم کن تا ترافیک WebSocket را به همین پورت محلی بفرستد. نگاشت پورت را بدون آگاهی از پیامدهای انتشار WebSocket بدون TLS روی رابط عمومی تغییر نده.
+
+برای دریافت مستقیم ایمیج آماده:
+
+</div>
 
 ```sh
 docker pull ghcr.io/mhdlabs/falix-relay:latest
 ```
 
-<!-- Screenshot 02 — بعداً تصویر موفقیت دریافت ایمیج اینجا قرار بگیرد. -->
+<div dir="rtl" align="right">
 
-## 3️⃣ اجرای کانتینر
-
-نمونهٔ زیر برای حالتی است که **ریورس‌پروکسی TLS روی همان میزبان** اجرا می‌شود. پورت Docker فقط روی `127.0.0.1` منتشر شده و مستقیماً از اینترنت قابل دسترسی نیست.
-
-```sh
-XRAY_UUID="$(cat /proc/sys/kernel/random/uuid)"
-
-docker run -d \
-  --name falix-relay \
-  --restart unless-stopped \
-  --env XRAY_UUID="$XRAY_UUID" \
-  --env PORT=8080 \
-  --env WS_PATH=/relay \
-  --publish 127.0.0.1:8080:8080/tcp \
-  ghcr.io/mhdlabs/falix-relay:latest
-
-unset XRAY_UUID
-```
-
-اگر UUID را از قبل ساخته‌ای، خط تولید UUID را با مقدار خصوصی خودت جایگزین کن. در پایان، ورودی TLSدار باید درخواست‌های WebSocket را به **`127.0.0.1:8080`** منتقل کند و مسیر **`/relay`** را حفظ کند.
-
-> [!NOTE]
-> اگر پنل میزبانی خودش یک متغیر پورت مثل `PORT` تزریق می‌کند، مقدار داخلی و تنظیمات انتشار پورت باید با هم هماهنگ باشند. دستور بالا نمونهٔ عمومی Docker است؛ تنظیمات شبکهٔ هر میزبان می‌تواند متفاوت باشد.
-
-<!-- Screenshot 03 — بعداً تصویر صفحهٔ تنظیم پورت یا اجرای کانتینر اینجا قرار بگیرد. -->
-
-## 4️⃣ بررسی وضعیت
-
-وضعیت کانتینر:
-
-```sh
-docker ps --filter name=falix-relay
-```
-
-مشاهدهٔ لاگ‌ها:
-
-```sh
-docker logs --tail 100 falix-relay
-```
-
-اعتبارسنجی تنظیمات با خود Xray:
-
-```sh
-docker exec falix-relay /usr/local/bin/falix-relay check
-```
-
-بررسی نسخهٔ Xray:
-
-```sh
-docker exec falix-relay /usr/local/bin/falix-relay version
-```
-
-دستور `check` ساختار تنظیمات را بررسی می‌کند، اما سلامت DNS عمومی، گواهی TLS، فایروال یا اتصال کامل کلاینت را تضمین نمی‌کند.
-
-<!-- Screenshot 04 — بعداً تصویر وضعیت سالم کانتینر یا خروجی check اینجا قرار بگیرد. -->
-
-## ⚙️ تنظیمات
-
-| متغیر | پیش‌فرض | توضیح |
-|---|---|---|
-| `XRAY_UUID` | ندارد | UUID خصوصی کلاینت VLESS؛ برای اجرا ضروری است. |
-| `PORT` | `8080` | پورت TCP داخل کانتینر؛ با توجه به اجرای غیر root باید بین `1024` تا `65535` باشد. |
-| `WS_PATH` | `/relay` | مسیر WebSocket؛ باید در ورودی و لینک کلاینت یکسان باشد. |
-
-این نسخه پنل وب، دیتابیس، مدیریت کاربر، سهمیه یا شمارندهٔ مصرف ندارد.
-
-## 🔗 ساخت لینک کلاینت
-
-الگوی لینک برای دامنه‌ای که TLS را در ورودی عمومی خاتمه می‌دهد:
-
-```text
-vless://<XRAY_UUID>@<PUBLIC_HOST>:443?encryption=none&security=tls&sni=<PUBLIC_HOST>&type=ws&host=<PUBLIC_HOST>&path=%2Frelay#Falix-Relay
-```
-
-جای‌نگهدارها را جایگزین کن:
-
-- `<XRAY_UUID>`: همان UUID خصوصی تنظیم‌شده در کانتینر
-- `<PUBLIC_HOST>`: دامنهٔ عمومی واقعی
-- پورت `443`، مقدار SNI، هدر Host و مسیر باید با تنظیمات ورودی TLS/ریورس‌پروکسی هماهنگ باشند.
-
-عبارت `%2Frelay` در لینک، شکل URL-encoded مسیر `/relay` است.
-
-<!-- Screenshot 05 — بعداً تصویر تنظیمات کلاینت و لینک آزمایشیِ بدون اطلاعات محرمانه اینجا قرار بگیرد. -->
+ایمیج برای Linux با معماری‌های `amd64` و `arm64` ساخته می‌شود. دریافت بدون ورود به GHCR مستلزم Public بودن Package است.
 
 ## 🧰 عیب‌یابی
 
-| نشانه | بررسی پیشنهادی |
+| نشانه | بررسی |
 |---|---|
-| کانتینر بالا نمی‌آید | `docker logs --tail 100 falix-relay` را اجرا کن و مقدار UUID و پورت را بررسی کن. |
-| خطای اتصال یا پاسخ 502 | بررسی کن ریورس‌پروکسی به پورت درست وصل شود و WebSocket Upgrade را عبور دهد. |
-| اتصال TLS برقرار نمی‌شود | دامنه، DNS و گواهی TLS را در ورودی عمومی بررسی کن؛ TLS در پیکربندی داخلی Xray فعال نیست. |
-| کلاینت وصل نمی‌شود | UUID، مسیر `/relay`، Host/SNI، پورت عمومی و تنظیمات ورودی را تطبیق بده. |
-| پورت اشغال است | مقدار سمت میزبان را تغییر بده و پورت داخلی `PORT` و نگاشت Docker را هماهنگ نگه دار. |
+| کانتینر بلافاصله خارج می‌شود | مقدار و فرمت `XRAY_UUID` را بررسی کن؛ Console در Falix یا `docker logs` را ببین. |
+| اتصال رد می‌شود | مطمئن شو سرویس اجراست و `PORT` با پورت اختصاص‌یافته در Falix یکسان است. |
+| اتصال Timeout می‌شود | تخصیص پورت در Falix و قوانین Firewall را بررسی کن. |
+| اتصال مستقیم برقرار نمی‌شود | آدرس و پورت دقیق Falix را وارد کن و TLS را در کلاینت غیرفعال کن. |
+| اتصال WSS برقرار نمی‌شود | فعال بودن Reverse Proxy و TLS، درستی پورت مقصد و عبور WebSocket Upgrade را بررسی کن. |
+| کلاینت به سرویس می‌رسد اما احراز هویت نمی‌شود | UUID و مسیر `/relay` را تطبیق بده. |
+| Docker Compose اجرا نمی‌شود | فرمان‌های `docker compose logs falix-relay` و `docker compose run --rm falix-relay check` را اجرا کن. |
+
+فرمان `check` تنظیمات را با ابزار خود Xray اعتبارسنجی می‌کند؛ اما DNS عمومی، پورت Falix، وضعیت TLS، Firewall یا اتصال کامل کلاینت را آزمایش نمی‌کند.
 
 ## 🔄 به‌روزرسانی و حذف
 
-برای دریافت آخرین ایمیج:
+برای استقرار مبتنی بر GHCR، ایمیج جدید را دریافت و سرور را با همان متغیرهای محیطی Restart کن:
+
+</div>
 
 ```sh
 docker pull ghcr.io/mhdlabs/falix-relay:latest
 ```
 
-برای جایگزینی نسخهٔ در حال اجرا، کانتینر فعلی را متوقف و حذف کن و سپس همان دستور `docker run` را با ایمیج جدید اجرا کن. کانتینر این پروژه محل نگهداری دادهٔ پایدار نیست؛ قبل از حذف، مطمئن شو UUID خصوصی خود را در اختیار داری.
+<div dir="rtl" align="right">
+
+برای Docker Compose:
+
+</div>
 
 ```sh
-docker stop falix-relay
-docker rm falix-relay
+docker compose pull
+docker compose up -d
 ```
 
-> [!CAUTION]
-> دستور `docker rm` کانتینر را حذف می‌کند. در صورت نیاز به ادامهٔ سرویس، پیش از حذف دستور راه‌اندازی مجدد را آماده داشته باش.
+<div dir="rtl" align="right">
+
+برای توقف و حذف کانتینر Compose:
+
+</div>
+
+```sh
+docker compose down
+```
+
+<div dir="rtl" align="right">
+
+Falix-Relay دادهٔ پایدار داخل کانتینر نگهداری نمی‌کند. پیش از جایگزینی یا حذف سرویس، نسخهٔ خصوصی UUID را در محل امن نگه دار.
 
 ---
 
-**مستندات بیشتر:** [README فارسی پروژه](../README-fa.md) · [README انگلیسی پروژه](../README.md) · [کد منبع](https://github.com/MHDLabs/Falix-Relay)
+**مستندات بیشتر:** [README پروژه](../README.md) · [راهنمای فارسی](README-fa.md) · [کد منبع](https://github.com/MHDLabs/Falix-Relay)
+</div>
