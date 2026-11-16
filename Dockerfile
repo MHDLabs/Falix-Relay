@@ -1,5 +1,5 @@
 # Falix-Relay, official Xray-core with verified release assets.
-FROM alpine:3.24.3 AS xray-download
+FROM alpine:3.24.4 AS xray-download
 
 ARG TARGETARCH
 ARG XRAY_VERSION=v26.10.31
@@ -27,7 +27,7 @@ RUN set -eux; \
     test -x /tmp/xray-dist/xray; \
     install -m 0755 /tmp/xray-dist/xray /out/xray
 
-FROM alpine:3.24.3
+FROM alpine:3.24.4
 
 LABEL org.opencontainers.image.title="Falix-Relay" \
       org.opencontainers.image.description="Minimal VLESS-WebSocket relay powered by official Xray-core" \
